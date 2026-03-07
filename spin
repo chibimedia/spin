@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinyl Video Generator + Export</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://ghcdn.rawgit.org/gzuidhof/coi-serviceworker/master/coi-serviceworker.min.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
+
+    <style>
+        #vinylCanvas {
+            aspect-ratio: 1 / 1;
+            background-color: #000;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.7);
+        }
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-radius: 50%;
+            border-top: 3px solid #3b82f6;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <header class="mb-8 text-center">
+            <h1 class="text-4xl font-bold text-white mb-2">Vinyl Video Generator</h1>
+            <p class="text-gray-400">Create high-quality spinning vinyl videos for social media.</p>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-1 space-y-6 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 h-fit">
+                
+                <section class="space-y-4">
+                    <h2 class="text-lg font-semibold text-blue-400 border-b border-gray-700 pb-2">1. Upload Assets</h2>
+                    
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-gray-500 mb-1">Vinyl Cover (1:1 recommended)</label>
+                        <input type="file" id="imageInput" accept="image/jpeg,image/png" 
+                            class="block w-full text-sm text-gray-300 border border-gray-600 rounded cursor-pointer bg-gray-700 p-1">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-gray-500 mb-1">Background Image (Optional)</label>
+                        <input type="file" id="bgInput" accept="image/jpeg,image/png" 
+                            class="block w-full text-sm text-gray-300 border border-gray-600 rounded cursor-pointer bg-gray-700 p-1">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-medium uppercase text-gray-500 mb-1">Audio Track (MP3)</label>
+                        <input type="file" id="audioInput" accept="audio/mpeg" 
+                            class="block w-full text-sm text-gray-300 border border-gray-600 rounded cursor-pointer bg-gray-700 p-1">
+                        <p id="audioWarning" class="text-yellow-500 text-[10px] mt-1 hidden">Note: Tracks > 5m may take significant time to export.</p>
+                    </div>
+                </section>
+
+                <section class="space-y-4">
+                    <h2 class="text-lg font-semibold text-blue-400 border-b border-gray-700 pb-2">2. Customization</h2>
+                    
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-medium uppercase text-gray-500">Center Hole Size</label>
+                            <span id="dotSizeVal" class="text-xs text-blue-400">10%</span>
+                        </div>
+                        <input type="range" id="dotSizeSlider" min="5" max="20" value="10" 
+                            class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <div>
+                        <div class="flex justify-between mb-1">
+                            <label class="text-xs font-medium uppercase text-gray-500">Rotation Speed Offset</label>
+                            <span id="speedValue" class="text-xs text-blue-400">+0</span>
+                        </div>
+                        <input type="range" id="speedSlider" min="-180" max="180" value="0" 
+                            class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+                </section>
+
+                <section class="space-y-4">
+                    <h2 class="text-lg font-semibold text-blue-400 border-b border-gray-700 pb-2">3. Export</h2>
+                    
+                    <div class="flex gap-2">
+                        <button id="playPauseBtn" disabled class="flex-1 py-2 bg-gray-700 text-white rounded font-bold opacity-50 cursor-not-allowed">Play</button>
+                        <button id="exportBtn" disabled class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed transition">Export MP4</button>
+                    </div>
+
+                    <div id="exportStatus" class="hidden p-4 bg-gray-900 rounded-lg border border-gray-700 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm font-medium" id="statusText">Preparing FFmpeg...</span>
+                            <div class="loading-spinner" id="statusSpinner"></div>
+                        </div>
+                        <div class="w-full bg-gray-700 rounded-full h-2">
+                            <div id="progressBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+                        </div>
+                        <button id="cancelBtn" class="w-full py-1 text-xs text-red-400 hover:text-red-300 font-semibold uppercase tracking-wider">Cancel Export</button>
+                    </div>
+                </section>
+
+                <div id="errorMessage" class="hidden p-3 bg-red-900/50 border border-red-700 text-red-200 text-xs rounded"></div>
+            </div>
+
+            <div class="lg:col-span-2 flex flex-col items-center justify-center bg-black/40 rounded-xl border border-gray-800 p-4">
+                <canvas id="vinylCanvas" width="1080" height="1080" class="max-w-full h-auto w-[540px] rounded-lg"></canvas>
+                <div id="timeDisplay" class="mt-4 font-mono text-gray-500">00:00 / 00:00</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        
+        // Settings
+        const CANVAS_SIZE = 1080;
+        const BASE_DEGS_PER_SEC = 180; // 30 RPM
+        const FPS = 30;
+
+        // State
+        let state = {
+            ffmpeg: null,
+            audioCtx: null,
+            audioBuffer: null,
+            audioFile: null,
+            sourceNode: null,
+            startTime: 0,
+            pausedAt: 0,
+            isPlaying: false,
+            duration: 0,
+            
+            vinylImg: null,  // Pre-processed offscreen canvas
+            bgImg: null,     // Pre-processed offscreen canvas
+            
+            speedOffset: 0,
+            dotSizePercent: 10,
+            isExporting: false,
+            shouldCancel: false
+        };
+
+        const canvas = document.getElementById('vinylCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false }); // Optimization: no transparency needed
+
+        /**
+         * INITIALIZATION & INPUTS
+         */
+        
+        const handleImage = (file, targetKey) => {
+            if (!file) return;
+            const img = new Image();
+            img.onload = () => {
+                state[targetKey] = processImage(img);
+                drawFrame(state.pausedAt);
+            };
+            img.src = URL.createObjectURL(file);
+        };
+
+        // Resize images to 1080x1080 (Cover style)
+        function processImage(img) {
+            const off = document.createElement('canvas');
+            off.width = CANVAS_SIZE;
+            off.height = CANVAS_SIZE;
+            const oCtx = off.getContext('2d');
+            const scale = Math.max(CANVAS_SIZE / img.width, CANVAS_SIZE / img.height);
+            const w = img.width * scale;
+            const h = img.height * scale;
+            oCtx.drawImage(img, (CANVAS_SIZE - w) / 2, (CANVAS_SIZE - h) / 2, w, h);
+            return off;
+        }
+
+        document.getElementById('imageInput').onchange = (e) => handleImage(e.target.files[0], 'vinylImg');
+        document.getElementById('bgInput').onchange = (e) => handleImage(e.target.files[0], 'bgImg');
+        
+        document.getElementById('audioInput').onchange = async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            state.audioFile = file;
+            state.audioCtx = state.audioCtx || new AudioContext();
+            const arrBuffer = await file.arrayBuffer();
+            state.audioBuffer = await state.audioCtx.decodeAudioData(arrBuffer);
+            state.duration = state.audioBuffer.duration;
+            
+            document.getElementById('playPauseBtn').disabled = false;
+            document.getElementById('playPauseBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('timeDisplay').textContent = `00:00 / ${formatTime(state.duration)}`;
+            if (state.duration > 300) document.getElementById('audioWarning').classList.remove('hidden');
+        };
+
+        document.getElementById('dotSizeSlider').oninput = (e) => {
+            state.dotSizePercent = parseInt(e.target.value);
+            document.getElementById('dotSizeVal').textContent = state.dotSizePercent + '%';
+            if (!state.isPlaying) drawFrame(state.pausedAt);
+        };
+
+        document.getElementById('speedSlider').oninput = (e) => {
+            state.speedOffset = parseInt(e.target.value);
+            document.getElementById('speedValue').textContent = (state.speedOffset >= 0 ? '+' : '') + state.speedOffset;
+            if (!state.isPlaying) drawFrame(state.pausedAt);
+        };
+
+        /**
+         * RENDERING ENGINE
+         */
+        function drawFrame(timeInSeconds) {
+            // 1. Draw Background
+            if (state.bgImg) {
+                ctx.drawImage(state.bgImg, 0, 0);
+            } else {
+                ctx.fillStyle = '#000';
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+
+            // 2. Draw Vinyl (Rotated)
+            const angle = (timeInSeconds * (BASE_DEGS_PER_SEC + state.speedOffset)) % 360;
+            
+            ctx.save();
+            ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
+            ctx.rotate(angle * Math.PI / 180);
+            ctx.translate(-CANVAS_SIZE / 2, -CANVAS_SIZE / 2);
+
+            // Circular Clip
+            ctx.beginPath();
+            ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0, Math.PI * 2);
+            ctx.clip();
+
+            if (state.vinylImg) {
+                ctx.drawImage(state.vinylImg, 0, 0);
+            } else {
+                ctx.fillStyle = '#111';
+                ctx.fill();
+                // Minimal vinyl grooves
+                ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+                for(let r=100; r<540; r+=10) {
+                    ctx.beginPath(); ctx.arc(CANVAS_SIZE/2, CANVAS_SIZE/2, r, 0, Math.PI*2); ctx.stroke();
+                }
+            }
+            ctx.restore();
+
+            // 3. Draw Center Dot (Static on top)
+            const dotRadius = CANVAS_SIZE * (state.dotSizePercent / 100);
+            ctx.beginPath();
+            ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, dotRadius, 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
+            ctx.strokeStyle = '#222';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+        }
+
+        /**
+         * EXPORT LOGIC (FFmpeg.wasm)
+         */
+        const exportBtn = document.getElementById('exportBtn');
+        const statusArea = document.getElementById('exportStatus');
+        const progressBar = document.getElementById('progressBar');
+        const statusText = document.getElementById('statusText');
+
+        exportBtn.onclick = async () => {
+            if (state.isPlaying) togglePlay();
+            
+            state.isExporting = true;
+            state.shouldCancel = false;
+            updateUIForExport(true);
+            
+            try {
+                if (!state.ffmpeg) {
+                    state.ffmpeg = createFFmpeg({ log: false });
+                    await state.ffmpeg.load();
+                }
+
+                const totalFrames = Math.floor(state.duration * FPS);
+                statusText.textContent = `Encoding frames (0/${totalFrames})...`;
+
+                // Render loop
+                for (let i = 0; i < totalFrames; i++) {
+                    if (state.shouldCancel) throw new Error('Export cancelled by user.');
+                    
+                    const timestamp = i / FPS;
+                    drawFrame(timestamp);
+                    
+                    // Capture canvas as Blob (JPEG for speed)
+                    const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
+                    const fileName = `f_${i.toString().padStart(6, '0')}.jpg`;
+                    
+                    state.ffmpeg.FS('writeFile', fileName, await fetchFile(blob));
+
+                    if (i % 10 === 0) {
+                        const percent = Math.round((i / totalFrames) * 100);
+                        progressBar.style.width = percent + '%';
+                        statusText.textContent = `Rendering: ${i}/${totalFrames} frames`;
+                    }
+                }
+
+                statusText.textContent = "Merging with audio...";
+                state.ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(state.audioFile));
+
+                // FFmpeg Command: Join images at 30fps, add audio, output mp4
+                // -pix_fmt yuv420p is required for compatibility with most players
+                await state.ffmpeg.run(
+                    '-framerate', String(FPS),
+                    '-i', 'f_%06d.jpg',
+                    '-i', 'audio.mp3',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-tune', 'stillimage',
+                    '-c:a', 'aac',
+                    '-b:a', '192k',
+                    '-pix_fmt', 'yuv420p',
+                    '-shortest',
+                    'output.mp4'
+                );
+
+                const data = state.ffmpeg.FS('readFile', 'output.mp4');
+                download(data, "vinyl-video.mp4", "video/mp4");
+                cleanupFFmpeg(totalFrames);
+
+            } catch (err) {
+                console.error(err);
+                document.getElementById('errorMessage').textContent = err.message;
+                document.getElementById('errorMessage').classList.remove('hidden');
+                cleanupFFmpeg();
+            } finally {
+                state.isExporting = false;
+                updateUIForExport(false);
+            }
+        };
+
+        function cleanupFFmpeg(framesCount = 0) {
+            if (!state.ffmpeg) return;
+            try {
+                for (let i = 0; i < framesCount; i++) {
+                    state.ffmpeg.FS('unlink', `f_${i.toString().padStart(6, '0')}.jpg`);
+                }
+                state.ffmpeg.FS('unlink', 'audio.mp3');
+                state.ffmpeg.FS('unlink', 'output.mp4');
+            } catch(e) {}
+        }
+
+        document.getElementById('cancelBtn').onclick = () => {
+            state.shouldCancel = true;
+        };
+
+        /**
+         * HELPER FUNCTIONS
+         */
+        function formatTime(s) {
+            const mins = Math.floor(s / 60);
+            const secs = Math.floor(s % 60);
+            return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateUIForExport(active) {
+            statusArea.classList.toggle('hidden', !active);
+            exportBtn.disabled = active;
+            document.getElementById('playPauseBtn').disabled = active;
+            if (!active) progressBar.style.width = '0%';
+        }
+
+        function download(data, filename, type) {
+            const blob = new Blob([data.buffer], { type });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Playback Logic
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        function togglePlay() {
+            if (state.isPlaying) {
+                state.sourceNode.stop();
+                state.pausedAt = state.audioCtx.currentTime - state.startTime;
+                state.isPlaying = false;
+                playPauseBtn.textContent = "Resume";
+            } else {
+                state.sourceNode = state.audioCtx.createBufferSource();
+                state.sourceNode.buffer = state.audioBuffer;
+                state.sourceNode.connect(state.audioCtx.destination);
+                state.sourceNode.start(0, state.pausedAt);
+                state.startTime = state.audioCtx.currentTime - state.pausedAt;
+                state.isPlaying = true;
+                playPauseBtn.textContent = "Pause";
+                requestAnimationFrame(animLoop);
+            }
+        }
+        playPauseBtn.onclick = togglePlay;
+
+        function animLoop() {
+            if (!state.isPlaying || state.isExporting) return;
+            const now = state.audioCtx.currentTime - state.startTime;
+            if (now >= state.duration) {
+                state.isPlaying = false;
+                state.pausedAt = 0;
+                playPauseBtn.textContent = "Play";
+                return;
+            }
+            document.getElementById('timeDisplay').textContent = `${formatTime(now)} / ${formatTime(state.duration)}`;
+            drawFrame(now);
+            requestAnimationFrame(animLoop);
+        }
+
+        // Init
+        drawFrame(0);
+    </script>
+</body>
+</html>
