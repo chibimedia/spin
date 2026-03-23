@@ -225,20 +225,28 @@
             ctx.clip();
 
             if (state.vinylAsset) {
-                const va = state.vinylAsset;
-                if (va.tagName === 'VIDEO' && va.readyState >= 2) {
-                    va.currentTime = time % va.duration;
-                }
-                ctx.drawImage(va, -vinylDim/2, -vinylDim/2, vinylDim, vinylDim);
-            } else {
-                ctx.fillStyle = '#111';
-                ctx.fill();
-                // Decorative grooves
-                ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-                for(let r=10; r < vinylDim/2; r+=15) {
-                    ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke();
-                }
-            }
+    const va = state.vinylAsset;
+    if (va.tagName === 'VIDEO' && va.readyState >= 2) {
+        va.currentTime = time % va.duration;
+    }
+    // Preserve aspect ratio: fit the asset inside the vinyl circle
+    const assetWidth = va.videoWidth || va.width;
+    const assetHeight = va.videoHeight || va.height;
+    const scale = Math.min(vinylDim / assetWidth, vinylDim / assetHeight);
+    const drawWidth = assetWidth * scale;
+    const drawHeight = assetHeight * scale;
+    const offsetX = -drawWidth / 2;
+    const offsetY = -drawHeight / 2;
+    ctx.drawImage(va, offsetX, offsetY, drawWidth, drawHeight);
+} else {
+    ctx.fillStyle = '#111';
+    ctx.fill();
+    // Decorative grooves
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    for(let r=10; r < vinylDim/2; r+=15) {
+        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke();
+    }
+}
             ctx.restore();
 
             // 3. Spindle Hole (Static Layer)
