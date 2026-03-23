@@ -1,460 +1,459 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vinyl Video Generator + Export</title>
-  <!-- MUST be first script — reloads page once to enable SharedArrayBuffer -->
-  <script src="coi-serviceworker.js"></script>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js" crossorigin></script>
-  <style>
-    #vinylCanvas {
-      aspect-ratio: 1 / 1;
-      background-color: #000;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.7);
-    }
-    .loading-spinner {
-      border: 3px solid rgba(255,255,255,0.1);
-      border-radius: 50%;
-      border-top: 3px solid #3b82f6;
-      width: 24px;
-      height: 24px;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vinyl Gen Pro</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><circle cx=%2250%22 cy=%2250%22 r=%2245%22 fill=%22black%22/><circle cx=%2250%22 cy=%2250%22 r=%2215%22 fill=%22%23333%22/><circle cx=%2250%22 cy=%2250%22 r=%225%22 fill=%22white%22/></svg>">
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="coi-serviceworker.js"></script>
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 
-    /* Cross-origin isolation overlay */
-    #coiOverlay {
-      position: fixed; inset: 0; z-index: 9999;
-      background: #111827;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      gap: 16px; color: white; font-family: sans-serif;
-    }
-    #coiOverlay.hidden { display: none; }
-    #coiOverlay .spinner {
-      border: 4px solid rgba(255,255,255,0.1);
-      border-top: 4px solid #3b82f6;
-      border-radius: 50%; width: 40px; height: 40px;
-      animation: spin 1s linear infinite;
-    }
-  </style>
+    <style>
+        body { background-color: #0f172a; }
+        .control-group { border-bottom: 1px solid #334155; padding-bottom: 1.25rem; margin-bottom: 1.25rem; }
+        .btn-preset { @apply px-2 py-1 bg-slate-700 hover:bg-blue-600 rounded text-[10px] uppercase font-bold transition; }
+        .btn-preset.active { @apply bg-blue-500 ring-2 ring-blue-300; }
+        canvas { box-shadow: 0 20px 50px rgba(0,0,0,0.5); background-color: v-bind('state.bgColor'); }
+        input[type=range] { @apply h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer; }
+    </style>
 </head>
-<body class="bg-gray-900 text-gray-100 min-h-screen p-4 md:p-8">
+<body class="text-slate-200 min-h-screen">
 
-  <!-- Shown until crossOriginIsolated is confirmed -->
-  <div id="coiOverlay">
-    <div class="spinner"></div>
-    <p style="font-size:1.1rem;font-weight:600;">Setting up export environment…</p>
-    <p style="font-size:0.8rem;color:#9ca3af;max-width:320px;text-align:center;">
-      This only happens on first load. The page will reload automatically if needed.
-    </p>
-  </div>
+    <div class="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-0">
+        
+        <aside class="lg:col-span-3 h-screen overflow-y-auto bg-slate-900 p-6 border-r border-slate-800 custom-scrollbar">
+            <header class="mb-8">
+                <h1 class="text-2xl font-black tracking-tighter text-white flex items-center gap-2">
+                    <span class="text-blue-500">VINYL</span>GEN <small class="text-[10px] bg-blue-500/20 text-blue-400 px-2 py-0.5 rounded">2026</small>
+                </h1>
+            </header>
 
-  <div class="max-w-7xl mx-auto">
-    <header class="mb-8 text-center">
-      <h1 class="text-4xl font-bold text-white mb-2">Vinyl Video Generator</h1>
-      <p class="text-gray-400">Create high-quality spinning vinyl videos for social media.</p>
-    </header>
-
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-      <div class="lg:col-span-1 space-y-6 bg-gray-800 p-6 rounded-xl shadow-lg border border-gray-700 h-fit">
-
-        <section class="space-y-4">
-          <h2 class="text-lg font-semibold text-blue-400 border-b border-gray-700 pb-2">1. Upload Assets</h2>
-          <div>
-            <label class="block text-xs font-medium uppercase text-gray-500 mb-1">Vinyl Cover (1:1 recommended)</label>
-            <input type="file" id="imageInput" accept="image/jpeg,image/png"
-              class="block w-full text-sm text-gray-300 border border-gray-600 rounded cursor-pointer bg-gray-700 p-1">
-          </div>
-          <div>
-            <label class="block text-xs font-medium uppercase text-gray-500 mb-1">Background Image (Optional)</label>
-            <input type="file" id="bgInput" accept="image/jpeg,image/png"
-              class="block w-full text-sm text-gray-300 border border-gray-600 rounded cursor-pointer bg-gray-700 p-1">
-          </div>
-          <div>
-            <label class="block text-xs font-medium uppercase text-gray-500 mb-1">Audio Track (MP3)</label>
-            <input type="file" id="audioInput" accept="audio/mpeg"
-              class="block w-full text-sm text-gray-300 border border-gray-600 rounded cursor-pointer bg-gray-700 p-1">
-            <p id="audioWarning" class="text-yellow-500 text-[10px] mt-1 hidden">Note: Tracks > 5m may take significant time to export.</p>
-          </div>
-        </section>
-
-        <section class="space-y-4">
-          <h2 class="text-lg font-semibold text-blue-400 border-b border-gray-700 pb-2">2. Customization</h2>
-          <div>
-            <div class="flex justify-between mb-1">
-              <label class="text-xs font-medium uppercase text-gray-500">Center Hole Size</label>
-              <span id="dotSizeVal" class="text-xs text-blue-400">10%</span>
+            <div class="control-group">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3">Assets</label>
+                <div class="space-y-3">
+                    <div>
+                        <span class="text-xs mb-1 block">Vinyl Center (Img/GIF)</span>
+                        <input type="file" id="vinylInput" accept="image/*" class="w-full text-xs bg-slate-800 p-1 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <span class="text-xs mb-1 block">Background (Img/GIF/Vid)</span>
+                        <input type="file" id="bgInput" accept="image/*,video/*" class="w-full text-xs bg-slate-800 p-1 rounded border border-slate-700">
+                    </div>
+                    <div>
+                        <span class="text-xs mb-1 block">Audio (MP3)</span>
+                        <input type="file" id="audioInput" accept="audio/mpeg" class="w-full text-xs bg-slate-800 p-1 rounded border border-slate-700">
+                    </div>
+                </div>
             </div>
-            <input type="range" id="dotSizeSlider" min="5" max="20" value="10"
-              class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-          </div>
-          <div>
-            <div class="flex justify-between mb-1">
-              <label class="text-xs font-medium uppercase text-gray-500">Rotation Speed Offset</label>
-              <span id="speedValue" class="text-xs text-blue-400">+0</span>
+
+            <div class="control-group">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3">Format</label>
+                <div class="flex gap-2" id="ratioPresets">
+                    <button data-ratio="1:1" class="btn-preset active">1:1</button>
+                    <button data-ratio="9:16" class="btn-preset">9:16</button>
+                    <button data-ratio="16:9" class="btn-preset">16:9</button>
+                </div>
             </div>
-            <input type="range" id="speedSlider" min="-180" max="180" value="0"
-              class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
-          </div>
-        </section>
 
-        <!-- COI status badge -->
-        <div id="coiBadge" class="hidden p-2 rounded text-xs text-center font-semibold"></div>
-
-        <section class="space-y-4">
-          <h2 class="text-lg font-semibold text-blue-400 border-b border-gray-700 pb-2">3. Export</h2>
-          <div class="flex gap-2">
-            <button id="playPauseBtn" disabled class="flex-1 py-2 bg-gray-700 text-white rounded font-bold opacity-50 cursor-not-allowed">Play</button>
-            <button id="exportBtn" disabled class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded font-bold disabled:opacity-50 disabled:cursor-not-allowed transition">Export MP4</button>
-          </div>
-          <div id="exportStatus" class="hidden p-4 bg-gray-900 rounded-lg border border-gray-700 space-y-3">
-            <div class="flex justify-between items-center">
-              <span class="text-sm font-medium" id="statusText">Preparing FFmpeg...</span>
-              <div class="loading-spinner" id="statusSpinner"></div>
+            <div class="control-group">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3">Vinyl Settings</label>
+                <div class="space-y-4">
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1"><span>Size</span><span id="sizeVal">70%</span></div>
+                        <input type="range" id="vinylSize" min="10" max="100" value="70" class="w-full">
+                    </div>
+                    <div>
+                        <span class="text-[10px] block mb-2 uppercase">Position</span>
+                        <div class="grid grid-cols-3 gap-1" id="posPresets">
+                            <button data-pos="tl" class="btn-preset text-[8px]">TL</button>
+                            <button data-pos="tc" class="btn-preset text-[8px]">TC</button>
+                            <button data-pos="tr" class="btn-preset text-[8px]">TR</button>
+                            <button data-pos="ml" class="btn-preset text-[8px]">L</button>
+                            <button data-pos="center" class="btn-preset active text-[8px]">Center</button>
+                            <button data-pos="mr" class="btn-preset text-[8px]">R</button>
+                            <button data-pos="bl" class="btn-preset text-[8px]">BL</button>
+                            <button data-pos="bc" class="btn-preset text-[8px]">BC</button>
+                            <button data-pos="br" class="btn-preset text-[8px]">BR</button>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs">Counter-Clockwise</span>
+                        <input type="checkbox" id="revToggle" class="w-4 h-4 accent-blue-500">
+                    </div>
+                </div>
             </div>
-            <div class="w-full bg-gray-700 rounded-full h-2">
-              <div id="progressBar" class="bg-blue-500 h-2 rounded-full" style="width: 0%"></div>
+
+            <div class="control-group border-none">
+                <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3">Background Settings</label>
+                <div class="space-y-4">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs">Base Color</span>
+                        <input type="color" id="bgColor" value="#000000" class="bg-transparent border-none w-8 h-8">
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-[10px] mb-1"><span>Opacity</span><span id="opacityVal">100%</span></div>
+                        <input type="range" id="bgOpacity" min="0" max="100" value="100" class="w-full">
+                    </div>
+                </div>
             </div>
-            <button id="cancelBtn" class="w-full py-1 text-xs text-red-400 hover:text-red-300 font-semibold uppercase tracking-wider">Cancel Export</button>
-          </div>
-        </section>
 
-        <div id="errorMessage" class="hidden p-3 bg-red-900/50 border border-red-700 text-red-200 text-xs rounded"></div>
-      </div>
+            <div class="mt-auto pt-4">
+                <button id="exportBtn" disabled class="w-full py-4 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-xl font-black text-sm uppercase tracking-tighter transition shadow-lg shadow-blue-900/20">
+                    Generate Video
+                </button>
+                <div id="exportProgress" class="hidden mt-4 space-y-2">
+                    <div class="flex justify-between text-[10px] font-bold uppercase"><span id="statusText">Processing...</span><span id="percentText">0%</span></div>
+                    <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                        <div id="progressBar" class="bg-blue-500 h-full w-0 transition-all"></div>
+                    </div>
+                    <button id="cancelBtn" class="w-full text-[10px] font-bold text-red-400 uppercase pt-2">Cancel</button>
+                </div>
+            </div>
+        </aside>
 
-      <div class="lg:col-span-2 flex flex-col items-center justify-center bg-black/40 rounded-xl border border-gray-800 p-4">
-        <canvas id="vinylCanvas" width="1080" height="1080" class="max-w-full h-auto w-[540px] rounded-lg"></canvas>
-        <div id="timeDisplay" class="mt-4 font-mono text-gray-500">00:00 / 00:00</div>
-      </div>
+        <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-slate-950/50 relative">
+            <div class="mb-8 flex gap-4">
+                <button id="playPauseBtn" disabled class="w-12 h-12 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition disabled:opacity-20">
+                    <svg id="playIcon" class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pauseIcon" class="hidden w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+            </div>
+
+            <div class="relative group">
+                <canvas id="mainCanvas" width="720" height="720" class="max-w-full h-auto rounded-sm outline outline-1 outline-white/10"></canvas>
+            </div>
+
+            <div class="w-full max-w-2xl mt-8 space-y-2">
+                <input type="range" id="seekBar" value="0" step="0.01" class="w-full accent-blue-500">
+                <div class="flex justify-between font-mono text-[10px] text-slate-500">
+                    <span id="timeCur">00:00</span>
+                    <span id="timeTot">00:00</span>
+                </div>
+            </div>
+
+            <div id="hiddenAssets" class="hidden"></div>
+        </main>
     </div>
-  </div>
 
-<script>
-  const { createFFmpeg, fetchFile } = FFmpeg;
+    <script>
+        const { createFFmpeg, fetchFile } = FFmpeg;
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d', { alpha: false });
+        
+        // --- State Management ---
+        const state = {
+            width: 720, height: 720,
+            ratio: '1:1',
+            vinylScale: 0.7,
+            vinylPos: 'center',
+            revRotation: false,
+            bgColor: '#000000',
+            bgOpacity: 1.0,
+            
+            audioBuffer: null,
+            audioCtx: null,
+            sourceNode: null,
+            startTime: 0,
+            pausedAt: 0,
+            isPlaying: false,
 
-  // ── Cross-Origin Isolation check ──────────────────────────────────────────
-  const overlay = document.getElementById('coiOverlay');
-  const badge   = document.getElementById('coiBadge');
+            vinylAsset: null, // HTMLImg or HTMLVid
+            bgAsset: null,    // HTMLImg or HTMLVid
+            isStatic: true,   // True if no videos present
+            
+            ffmpeg: null,
+            isExporting: false,
+            shouldCancel: false
+        };
 
-  function checkCOI() {
-    if (self.crossOriginIsolated) {
-      overlay.classList.add('hidden');
-      badge.textContent = '✓ Export ready (crossOriginIsolated)';
-      badge.className = 'p-2 rounded text-xs text-center font-semibold bg-green-900/50 text-green-400 border border-green-700';
-      badge.classList.remove('hidden');
-    } else {
-      // coi-serviceworker.js will trigger a reload automatically.
-      // If we're still here after 3s, show a warning instead of hanging forever.
-      setTimeout(() => {
-        if (!self.crossOriginIsolated) {
-          overlay.innerHTML = `
-            <p style="font-size:1rem;font-weight:600;color:#f87171;">Cross-Origin Isolation unavailable</p>
-            <p style="font-size:0.8rem;color:#9ca3af;max-width:360px;text-align:center;">
-              Your browser or host blocked the Service Worker needed for MP4 export.
-              The preview and audio playback still work — but Export MP4 requires a host that supports custom headers
-              (e.g. Netlify, Vercel, Cloudflare Pages).
-            </p>
-            <button onclick="document.getElementById('coiOverlay').classList.add('hidden')"
-              style="margin-top:8px;padding:8px 20px;background:#3b82f6;border:none;border-radius:6px;color:white;cursor:pointer;font-weight:600;">
-              Continue without Export
-            </button>`;
-          badge.textContent = '⚠ Export unavailable — no cross-origin isolation';
-          badge.className = 'p-2 rounded text-xs text-center font-semibold bg-yellow-900/50 text-yellow-400 border border-yellow-700';
-          badge.classList.remove('hidden');
+        // --- Core Drawing Logic ---
+        function drawFrame(time) {
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Background
+            if (state.bgAsset) {
+                ctx.save();
+                ctx.globalAlpha = state.bgOpacity;
+                const asset = state.bgAsset;
+                // Video frame update if applicable
+                if (asset.tagName === 'VIDEO') asset.currentTime = time % asset.duration;
+                
+                const scale = Math.max(canvas.width / asset.width || 1, canvas.height / asset.height || 1);
+                const w = (asset.width || asset.videoWidth) * scale;
+                const h = (asset.height || asset.videoHeight) * scale;
+                ctx.drawImage(asset, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
+                ctx.restore();
+            }
+
+            // 2. Draw Vinyl
+            const baseRPM = 30;
+            const degPerSec = baseRPM * 6;
+            let angle = (time * degPerSec) % 360;
+            if (state.revRotation) angle = -angle;
+
+            const vinylDim = Math.min(canvas.width, canvas.height) * state.vinylScale;
+            let vx = canvas.width / 2, vy = canvas.height / 2;
+
+            // Position presets
+            const pad = vinylDim / 2;
+            if (state.vinylPos === 'tl') { vx = pad; vy = pad; }
+            else if (state.vinylPos === 'tc') { vy = pad; }
+            else if (state.vinylPos === 'tr') { vx = canvas.width - pad; vy = pad; }
+            else if (state.vinylPos === 'ml') { vx = pad; }
+            else if (state.vinylPos === 'mr') { vx = canvas.width - pad; }
+            else if (state.vinylPos === 'bl') { vx = pad; vy = canvas.height - pad; }
+            else if (state.vinylPos === 'bc') { vy = canvas.height - pad; }
+            else if (state.vinylPos === 'br') { vx = canvas.width - pad; vy = canvas.height - pad; }
+
+            ctx.save();
+            ctx.translate(vx, vy);
+            ctx.rotate(angle * Math.PI / 180);
+            
+            // Mask for vinyl
+            ctx.beginPath();
+            ctx.arc(0, 0, vinylDim / 2, 0, Math.PI * 2);
+            ctx.clip();
+
+            if (state.vinylAsset) {
+                if (state.vinylAsset.tagName === 'VIDEO') state.vinylAsset.currentTime = time % state.vinylAsset.duration;
+                ctx.drawImage(state.vinylAsset, -vinylDim/2, -vinylDim/2, vinylDim, vinylDim);
+            } else {
+                ctx.fillStyle = '#111';
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // 3. Center Hole (Static)
+            ctx.beginPath();
+            ctx.arc(vx, vy, vinylDim * 0.05, 0, Math.PI * 2);
+            ctx.fillStyle = '#000';
+            ctx.fill();
         }
-      }, 3000);
-    }
-  }
 
-  // Run after SW has had a chance to activate
-  if (document.readyState === 'complete') {
-    checkCOI();
-  } else {
-    window.addEventListener('load', checkCOI);
-  }
-
-  // ── Settings ──────────────────────────────────────────────────────────────
-  const CANVAS_SIZE = 1080;
-  const BASE_DEGS_PER_SEC = 180; // 30 RPM
-  const FPS = 30;
-
-  // ── State ─────────────────────────────────────────────────────────────────
-  let state = {
-    ffmpeg: null,
-    audioCtx: null,
-    audioBuffer: null,
-    audioFile: null,
-    sourceNode: null,
-    startTime: 0,
-    pausedAt: 0,
-    isPlaying: false,
-    duration: 0,
-    vinylImg: null,
-    bgImg: null,
-    speedOffset: 0,
-    dotSizePercent: 10,
-    isExporting: false,
-    shouldCancel: false
-  };
-
-  const canvas = document.getElementById('vinylCanvas');
-  const ctx = canvas.getContext('2d', { alpha: false });
-
-  // ── Image handling ────────────────────────────────────────────────────────
-  const handleImage = (file, targetKey) => {
-    if (!file) return;
-    const img = new Image();
-    img.onload = () => {
-      state[targetKey] = processImage(img);
-      drawFrame(state.pausedAt);
-    };
-    img.src = URL.createObjectURL(file);
-  };
-
-  function processImage(img) {
-    const off = document.createElement('canvas');
-    off.width = CANVAS_SIZE;
-    off.height = CANVAS_SIZE;
-    const oCtx = off.getContext('2d');
-    const scale = Math.max(CANVAS_SIZE / img.width, CANVAS_SIZE / img.height);
-    const w = img.width * scale;
-    const h = img.height * scale;
-    oCtx.drawImage(img, (CANVAS_SIZE - w) / 2, (CANVAS_SIZE - h) / 2, w, h);
-    return off;
-  }
-
-  document.getElementById('imageInput').onchange = (e) => handleImage(e.target.files[0], 'vinylImg');
-  document.getElementById('bgInput').onchange    = (e) => handleImage(e.target.files[0], 'bgImg');
-
-  document.getElementById('audioInput').onchange = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    state.audioFile = file;
-    state.audioCtx  = state.audioCtx || new AudioContext();
-    const arrBuffer = await file.arrayBuffer();
-    state.audioBuffer = await state.audioCtx.decodeAudioData(arrBuffer);
-    state.duration    = state.audioBuffer.duration;
-    document.getElementById('playPauseBtn').disabled = false;
-    document.getElementById('playPauseBtn').classList.remove('opacity-50', 'cursor-not-allowed');
-    // Only enable export if crossOriginIsolated
-    if (self.crossOriginIsolated) {
-      document.getElementById('exportBtn').disabled = false;
-    }
-    document.getElementById('timeDisplay').textContent = `00:00 / ${formatTime(state.duration)}`;
-    if (state.duration > 300) document.getElementById('audioWarning').classList.remove('hidden');
-  };
-
-  document.getElementById('dotSizeSlider').oninput = (e) => {
-    state.dotSizePercent = parseInt(e.target.value);
-    document.getElementById('dotSizeVal').textContent = state.dotSizePercent + '%';
-    if (!state.isPlaying) drawFrame(state.pausedAt);
-  };
-  document.getElementById('speedSlider').oninput = (e) => {
-    state.speedOffset = parseInt(e.target.value);
-    document.getElementById('speedValue').textContent = (state.speedOffset >= 0 ? '+' : '') + state.speedOffset;
-    if (!state.isPlaying) drawFrame(state.pausedAt);
-  };
-
-  // ── Rendering ─────────────────────────────────────────────────────────────
-  function drawFrame(timeInSeconds) {
-    if (state.bgImg) {
-      ctx.drawImage(state.bgImg, 0, 0);
-    } else {
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
-    }
-
-    const angle = (timeInSeconds * (BASE_DEGS_PER_SEC + state.speedOffset)) % 360;
-    ctx.save();
-    ctx.translate(CANVAS_SIZE / 2, CANVAS_SIZE / 2);
-    ctx.rotate(angle * Math.PI / 180);
-    ctx.translate(-CANVAS_SIZE / 2, -CANVAS_SIZE / 2);
-
-    ctx.beginPath();
-    ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, CANVAS_SIZE / 2, 0, Math.PI * 2);
-    ctx.clip();
-
-    if (state.vinylImg) {
-      ctx.drawImage(state.vinylImg, 0, 0);
-    } else {
-      ctx.fillStyle = '#111';
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
-      for (let r = 100; r < 540; r += 10) {
-        ctx.beginPath(); ctx.arc(CANVAS_SIZE/2, CANVAS_SIZE/2, r, 0, Math.PI*2); ctx.stroke();
-      }
-    }
-
-    ctx.restore();
-
-    const dotRadius = CANVAS_SIZE * (state.dotSizePercent / 100);
-    ctx.beginPath();
-    ctx.arc(CANVAS_SIZE / 2, CANVAS_SIZE / 2, dotRadius, 0, Math.PI * 2);
-    ctx.fillStyle = '#000';
-    ctx.fill();
-    ctx.strokeStyle = '#222';
-    ctx.lineWidth = 4;
-    ctx.stroke();
-  }
-
-  // ── Export ────────────────────────────────────────────────────────────────
-  const exportBtn   = document.getElementById('exportBtn');
-  const statusArea  = document.getElementById('exportStatus');
-  const progressBar = document.getElementById('progressBar');
-  const statusText  = document.getElementById('statusText');
-
-  exportBtn.onclick = async () => {
-    if (!self.crossOriginIsolated) {
-      alert('Export requires cross-origin isolation. Please use Netlify, Vercel, or Cloudflare Pages instead of GitHub Pages.');
-      return;
-    }
-    if (state.isPlaying) togglePlay();
-    state.isExporting   = true;
-    state.shouldCancel  = false;
-    updateUIForExport(true);
-
-    try {
-      if (!state.ffmpeg) {
-        statusText.textContent = 'Loading FFmpeg…';
-        state.ffmpeg = createFFmpeg({ log: false });
-        await state.ffmpeg.load();
-      }
-
-      const totalFrames = Math.floor(state.duration * FPS);
-      statusText.textContent = `Encoding frames (0/${totalFrames})...`;
-
-      for (let i = 0; i < totalFrames; i++) {
-        if (state.shouldCancel) throw new Error('Export cancelled by user.');
-        const timestamp = i / FPS;
-        drawFrame(timestamp);
-        const blob = await new Promise(res => canvas.toBlob(res, 'image/jpeg', 0.9));
-        const fileName = `f_${i.toString().padStart(6, '0')}.jpg`;
-        state.ffmpeg.FS('writeFile', fileName, await fetchFile(blob));
-        if (i % 10 === 0) {
-          const percent = Math.round((i / totalFrames) * 100);
-          progressBar.style.width = percent + '%';
-          statusText.textContent = `Rendering: ${i}/${totalFrames} frames`;
-          // Yield to browser so UI doesn't freeze
-          await new Promise(r => setTimeout(r, 0));
+        // --- Asset Handling ---
+        async function loadAsset(file) {
+            const isVideo = file.type.startsWith('video');
+            const url = URL.createObjectURL(file);
+            if (isVideo) {
+                state.isStatic = false;
+                const vid = document.createElement('video');
+                vid.src = url;
+                vid.muted = true;
+                vid.loop = true;
+                await new Promise(r => vid.onloadeddata = r);
+                return vid;
+            } else {
+                const img = new Image();
+                img.src = url;
+                await new Promise(r => img.onload = r);
+                return img;
+            }
         }
-      }
 
-      statusText.textContent = 'Merging with audio…';
-      progressBar.style.width = '95%';
-      state.ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(state.audioFile));
+        document.getElementById('vinylInput').onchange = async (e) => {
+            state.vinylAsset = await loadAsset(e.target.files[0]);
+            drawFrame(state.pausedAt);
+        };
 
-      await state.ffmpeg.run(
-        '-framerate', String(FPS),
-        '-i', 'f_%06d.jpg',
-        '-i', 'audio.mp3',
-        '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-tune', 'stillimage',
-        '-c:a', 'aac',
-        '-b:a', '192k',
-        '-pix_fmt', 'yuv420p',
-        '-shortest',
-        'output.mp4'
-      );
+        document.getElementById('bgInput').onchange = async (e) => {
+            state.bgAsset = await loadAsset(e.target.files[0]);
+            drawFrame(state.pausedAt);
+        };
 
-      progressBar.style.width = '100%';
-      statusText.textContent = 'Done! Downloading…';
-      const data = state.ffmpeg.FS('readFile', 'output.mp4');
-      download(data, 'vinyl-video.mp4', 'video/mp4');
-      cleanupFFmpeg(totalFrames);
+        document.getElementById('audioInput').onchange = async (e) => {
+            const file = e.target.files[0];
+            state.audioFile = file;
+            state.audioCtx = state.audioCtx || new AudioContext();
+            state.audioBuffer = await state.audioCtx.decodeAudioData(await file.arrayBuffer());
+            document.getElementById('playPauseBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('timeTot').textContent = formatTime(state.audioBuffer.duration);
+            document.getElementById('seekBar').max = state.audioBuffer.duration;
+        };
 
-    } catch (err) {
-      console.error(err);
-      const errEl = document.getElementById('errorMessage');
-      errEl.textContent = err.message;
-      errEl.classList.remove('hidden');
-      cleanupFFmpeg();
-    } finally {
-      state.isExporting = false;
-      updateUIForExport(false);
-    }
-  };
+        // --- UI Events ---
+        document.getElementById('ratioPresets').onclick = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            state.ratio = btn.dataset.ratio;
+            document.querySelectorAll('#ratioPresets button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            if (state.ratio === '1:1') { canvas.width = 720; canvas.height = 720; }
+            else if (state.ratio === '9:16') { canvas.width = 405; canvas.height = 720; }
+            else if (state.ratio === '16:9') { canvas.width = 1280; canvas.height = 720; }
+            drawFrame(state.pausedAt);
+        };
 
-  function cleanupFFmpeg(framesCount = 0) {
-    if (!state.ffmpeg) return;
-    try {
-      for (let i = 0; i < framesCount; i++) {
-        state.ffmpeg.FS('unlink', `f_${i.toString().padStart(6, '0')}.jpg`);
-      }
-      state.ffmpeg.FS('unlink', 'audio.mp3');
-      state.ffmpeg.FS('unlink', 'output.mp4');
-    } catch(e) {}
-  }
+        document.getElementById('posPresets').onclick = (e) => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            state.vinylPos = btn.dataset.pos;
+            document.querySelectorAll('#posPresets button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            drawFrame(state.pausedAt);
+        };
 
-  document.getElementById('cancelBtn').onclick = () => { state.shouldCancel = true; };
+        document.getElementById('vinylSize').oninput = (e) => {
+            state.vinylScale = e.target.value / 100;
+            document.getElementById('sizeVal').textContent = e.target.value + '%';
+            drawFrame(state.pausedAt);
+        };
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  function formatTime(s) {
-    const mins = Math.floor(s / 60);
-    const secs = Math.floor(s % 60);
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  }
+        document.getElementById('bgOpacity').oninput = (e) => {
+            state.bgOpacity = e.target.value / 100;
+            document.getElementById('opacityVal').textContent = e.target.value + '%';
+            drawFrame(state.pausedAt);
+        };
 
-  function updateUIForExport(active) {
-    statusArea.classList.toggle('hidden', !active);
-    exportBtn.disabled = active;
-    document.getElementById('playPauseBtn').disabled = active;
-    if (!active) progressBar.style.width = '0%';
-  }
+        document.getElementById('bgColor').oninput = (e) => {
+            state.bgColor = e.target.value;
+            drawFrame(state.pausedAt);
+        };
 
-  function download(data, filename, type) {
-    const blob = new Blob([data.buffer], { type });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  }
+        document.getElementById('revToggle').onchange = (e) => {
+            state.revRotation = e.target.checked;
+            drawFrame(state.pausedAt);
+        };
 
-  // ── Playback ──────────────────────────────────────────────────────────────
-  const playPauseBtn = document.getElementById('playPauseBtn');
+        // --- Playback Logic ---
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const seekBar = document.getElementById('seekBar');
 
-  function togglePlay() {
-    if (state.isPlaying) {
-      state.sourceNode.stop();
-      state.pausedAt  = state.audioCtx.currentTime - state.startTime;
-      state.isPlaying = false;
-      playPauseBtn.textContent = 'Resume';
-    } else {
-      state.sourceNode = state.audioCtx.createBufferSource();
-      state.sourceNode.buffer = state.audioBuffer;
-      state.sourceNode.connect(state.audioCtx.destination);
-      state.sourceNode.start(0, state.pausedAt);
-      state.startTime  = state.audioCtx.currentTime - state.pausedAt;
-      state.isPlaying  = true;
-      playPauseBtn.textContent = 'Pause';
-      requestAnimationFrame(animLoop);
-    }
-  }
+        function togglePlay() {
+            if (state.isPlaying) {
+                state.sourceNode.stop();
+                state.pausedAt = state.audioCtx.currentTime - state.startTime;
+                state.isPlaying = false;
+                toggleIcons(false);
+            } else {
+                state.audioCtx.resume();
+                state.sourceNode = state.audioCtx.createBufferSource();
+                state.sourceNode.buffer = state.audioBuffer;
+                state.sourceNode.connect(state.audioCtx.destination);
+                state.sourceNode.start(0, state.pausedAt);
+                state.startTime = state.audioCtx.currentTime - state.pausedAt;
+                state.isPlaying = true;
+                toggleIcons(true);
+                requestAnimationFrame(playbackLoop);
+            }
+        }
 
-  playPauseBtn.onclick = togglePlay;
+        function toggleIcons(playing) {
+            document.getElementById('playIcon').classList.toggle('hidden', playing);
+            document.getElementById('pauseIcon').classList.toggle('hidden', !playing);
+        }
 
-  function animLoop() {
-    if (!state.isPlaying || state.isExporting) return;
-    const now = state.audioCtx.currentTime - state.startTime;
-    if (now >= state.duration) {
-      state.isPlaying = false;
-      state.pausedAt  = 0;
-      playPauseBtn.textContent = 'Play';
-      return;
-    }
-    document.getElementById('timeDisplay').textContent =
-      `${formatTime(now)} / ${formatTime(state.duration)}`;
-    drawFrame(now);
-    requestAnimationFrame(animLoop);
-  }
+        function playbackLoop() {
+            if (!state.isPlaying || state.isExporting) return;
+            const now = state.audioCtx.currentTime - state.startTime;
+            if (now >= state.audioBuffer.duration) {
+                state.isPlaying = false;
+                state.pausedAt = 0;
+                toggleIcons(false);
+                return;
+            }
+            seekBar.value = now;
+            document.getElementById('timeCur').textContent = formatTime(now);
+            drawFrame(now);
+            requestAnimationFrame(playbackLoop);
+        }
 
-  // Init
-  drawFrame(0);
-</script>
+        seekBar.oninput = (e) => {
+            const wasPlaying = state.isPlaying;
+            if (wasPlaying) togglePlay();
+            state.pausedAt = parseFloat(e.target.value);
+            document.getElementById('timeCur').textContent = formatTime(state.pausedAt);
+            drawFrame(state.pausedAt);
+        };
+
+        playPauseBtn.onclick = togglePlay;
+
+        // --- Export Engine ---
+        document.getElementById('exportBtn').onclick = async () => {
+            if (state.isPlaying) togglePlay();
+            state.isExporting = true;
+            state.shouldCancel = false;
+            
+            const exportArea = document.getElementById('exportProgress');
+            const pBar = document.getElementById('progressBar');
+            const pText = document.getElementById('percentText');
+            const sText = document.getElementById('statusText');
+            
+            exportArea.classList.remove('hidden');
+            document.getElementById('exportBtn').disabled = true;
+
+            try {
+                if (!state.ffmpeg) {
+                    state.ffmpeg = createFFmpeg({ log: false });
+                    await state.ffmpeg.load();
+                }
+
+                const fps = 24;
+                // Optimization: If static, only 1 full rotation (2s at 30rpm)
+                const loopDuration = 2.0; 
+                const renderDuration = state.isStatic ? loopDuration : state.audioBuffer.duration;
+                const totalFrames = Math.floor(renderDuration * fps);
+
+                for (let i = 0; i < totalFrames; i++) {
+                    if (state.shouldCancel) throw new Error("Cancelled");
+                    const t = i / fps;
+                    drawFrame(t);
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+                    state.ffmpeg.FS('writeFile', `f_${i.toString().padStart(5,'0')}.jpg`, await fetchFile(blob));
+                    
+                    pBar.style.width = ((i / totalFrames) * 100) + '%';
+                    pText.textContent = Math.round((i / totalFrames) * 100) + '%';
+                    sText.textContent = `Rendering ${i}/${totalFrames}`;
+                }
+
+                sText.textContent = "Finalizing...";
+                state.ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(state.audioFile));
+
+                const loopArgs = state.isStatic ? ['-stream_loop', '-1'] : [];
+
+                await state.ffmpeg.run(
+                    '-framerate', String(fps),
+                    ...loopArgs,
+                    '-i', 'f_%05d.jpg',
+                    '-i', 'audio.mp3',
+                    '-c:v', 'libx264',
+                    '-preset', 'ultrafast',
+                    '-pix_fmt', 'yuv420p',
+                    '-shortest',
+                    'out.mp4'
+                );
+
+                const data = state.ffmpeg.FS('readFile', 'out.mp4');
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+                link.download = 'vinyl_export.mp4';
+                link.click();
+
+            } catch (e) {
+                console.error(e);
+                alert(e.message === "Cancelled" ? "Export Cancelled" : "Error during export");
+            } finally {
+                state.isExporting = false;
+                exportArea.classList.add('hidden');
+                document.getElementById('exportBtn').disabled = false;
+            }
+        };
+
+        document.getElementById('cancelBtn').onclick = () => state.shouldCancel = true;
+
+        function formatTime(s) {
+            const m = Math.floor(s / 60);
+            const sec = Math.floor(s % 60);
+            return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
+        }
+
+        // Init
+        drawFrame(0);
+
+    </script>
 </body>
 </html>
