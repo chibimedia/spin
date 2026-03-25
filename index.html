@@ -16,7 +16,9 @@
         .btn-preset { @apply px-2 py-2 bg-slate-800 hover:bg-blue-600 rounded text-[9px] uppercase font-bold transition text-center border border-slate-700; }
         .btn-preset.active { @apply bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20; }
         input[type=range] { @apply h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500; }
-        canvas { background-color: v-bind('state.bgColor'); }
+        canvas { background-color: v-bind('state.bgColor'); transition: outline 0.2s ease; }
+        canvas.drag-over { outline: 4px solid #3b82f6 !important; outline-offset: 4px; }
+        .toggle-label { @apply text-[10px] uppercase font-bold text-slate-500 tracking-tighter; }
     </style>
 </head>
 <body class="text-slate-200 min-h-screen">
@@ -46,6 +48,7 @@
                         <input type="file" id="audioInput" accept="audio/mpeg" class="w-full text-xs bg-slate-800 p-1.5 rounded border border-slate-700">
                     </div>
                 </div>
+                <p class="text-[9px] text-slate-500 mt-2 italic">Tip: Drag & drop files directly onto the preview canvas.</p>
             </div>
 
             <div class="control-group">
@@ -72,19 +75,37 @@
                         <span class="text-[10px] block mb-2 uppercase text-slate-500">Alignment</span>
                         <div class="grid grid-cols-3 gap-1.5" id="posPresets">
                             <button data-pos="tl" class="btn-preset">Top L</button>
-                            <button data-pos="tc" class="btn-preset">Top C</button>
+                            <button data-pos="tc" class="btn-preset">Top</button>
                             <button data-pos="tr" class="btn-preset">Top R</button>
-                            <button data-pos="ml" class="btn-preset">Mid L</button>
+                            <button data-pos="ml" class="btn-preset">Left</button>
                             <button data-pos="center" class="btn-preset active">Center</button>
-                            <button data-pos="mr" class="btn-preset">Mid R</button>
+                            <button data-pos="mr" class="btn-preset">Right</button>
                             <button data-pos="bl" class="btn-preset">Bot L</button>
-                            <button data-pos="bc" class="btn-preset">Bot C</button>
+                            <button data-pos="bc" class="btn-preset">Bottom</button>
                             <button data-pos="br" class="btn-preset">Bot R</button>
                         </div>
                     </div>
-                    <div class="flex items-center justify-between p-2 bg-slate-800/50 rounded border border-slate-700/50">
-                        <span class="text-xs">Reverse Direction</span>
-                        <input type="checkbox" id="revToggle" class="w-4 h-4 accent-blue-500">
+                    <div class="grid grid-cols-1 gap-2 p-2 bg-slate-800/50 rounded border border-slate-700/50">
+                        <div class="flex items-center justify-between">
+                            <span class="toggle-label">Fit Vinyl Image</span>
+                            <input type="checkbox" id="vinylFitToggle" class="w-4 h-4 accent-blue-500">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="toggle-label">Show Vinyl Fill Color</span>
+                            <input type="checkbox" id="showVinylFill" checked class="w-4 h-4 accent-blue-500">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="toggle-label">Solid Pin (Center Dot)</span>
+                            <input type="checkbox" id="showCenterDot" class="w-4 h-4 accent-blue-500">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="toggle-label">Reverse Direction</span>
+                            <input type="checkbox" id="revToggle" class="w-4 h-4 accent-blue-500">
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs">Vinyl Base Color</span>
+                        <input type="color" id="vinylFillColor" value="#000000" class="bg-transparent border-none w-8 h-8 cursor-pointer">
                     </div>
                 </div>
             </div>
@@ -92,6 +113,10 @@
             <div class="control-group border-none">
                 <label class="text-[10px] font-bold text-slate-500 uppercase tracking-widest block mb-3">4. Backdrop</label>
                 <div class="space-y-4">
+                    <div class="flex items-center justify-between p-2 bg-slate-800/50 rounded border border-slate-700/50">
+                        <span class="toggle-label">Fit Background Image</span>
+                        <input type="checkbox" id="bgFitToggle" class="w-4 h-4 accent-blue-500">
+                    </div>
                     <div class="flex items-center justify-between">
                         <span class="text-xs">Base Color</span>
                         <input type="color" id="bgColor" value="#000000" class="bg-transparent border-none w-8 h-8 cursor-pointer">
@@ -155,6 +180,13 @@
             bgColor: '#000000',
             bgOpacity: 1.0,
             
+            // New UI states
+            vinylFit: false,
+            bgFit: false,
+            vinylFillColor: '#000000',
+            showVinylFill: true,
+            showCenterDot: false,
+
             audioBuffer: null,
             audioCtx: null,
             sourceNode: null,
@@ -164,17 +196,16 @@
 
             vinylAsset: null, 
             bgAsset: null,    
-            isStatic: true,   // Flag for loop optimization
+            isStatic: true,
             
             ffmpeg: null,
             isExporting: false,
-            shouldCancel: false
+            shouldCancel: false,
+            
+            // Track vinyl center for drag/drop
+            vx: 360, vy: 360, vRadius: 252
         };
 
-        /**
-         * Core Rendering Function
-         * @param {number} time - Current time in seconds within the audio track
-         */
         function drawFrame(time) {
             ctx.fillStyle = state.bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -184,20 +215,22 @@
                 ctx.save();
                 ctx.globalAlpha = state.bgOpacity;
                 const asset = state.bgAsset;
+                if (asset.tagName === 'VIDEO' && asset.readyState >= 2) asset.currentTime = time % asset.duration;
                 
-                if (asset.tagName === 'VIDEO' && asset.readyState >= 2) {
-                    asset.currentTime = time % asset.duration;
-                }
+                const assetW = asset.videoWidth || asset.width;
+                const assetH = asset.videoHeight || asset.height;
+                const scale = state.bgFit 
+                    ? Math.min(canvas.width / assetW, canvas.height / assetH)
+                    : Math.max(canvas.width / assetW, canvas.height / assetH);
                 
-                const scale = Math.max(canvas.width / (asset.videoWidth || asset.width), canvas.height / (asset.videoHeight || asset.height));
-                const w = (asset.videoWidth || asset.width) * scale;
-                const h = (asset.videoHeight || asset.height) * scale;
+                const w = assetW * scale;
+                const h = assetH * scale;
                 ctx.drawImage(asset, (canvas.width - w) / 2, (canvas.height - h) / 2, w, h);
                 ctx.restore();
             }
 
-            // 2. Vinyl Rotation Logic
-            const baseSpeed = 180; // deg per sec (30 RPM)
+            // 2. Vinyl Calculations
+            const baseSpeed = 180;
             const totalSpeed = (baseSpeed + state.speedOffset) * (state.revRotation ? -1 : 1);
             const angle = (time * totalSpeed) % 360;
 
@@ -205,7 +238,6 @@
             let vx = canvas.width / 2, vy = canvas.height / 2;
             const pad = vinylDim / 2;
 
-            // Positioning Logic
             if (state.vinylPos === 'tl') { vx = pad; vy = pad; }
             else if (state.vinylPos === 'tc') { vy = pad; }
             else if (state.vinylPos === 'tr') { vx = canvas.width - pad; vy = pad; }
@@ -215,71 +247,67 @@
             else if (state.vinylPos === 'bc') { vy = canvas.height - pad; }
             else if (state.vinylPos === 'br') { vx = canvas.width - pad; vy = canvas.height - pad; }
 
+            state.vx = vx; state.vy = vy; state.vRadius = pad;
+
             ctx.save();
             ctx.translate(vx, vy);
             ctx.rotate(angle * Math.PI / 180);
             
-            // Masking for circular center
+            // Clip to vinyl circle
             ctx.beginPath();
             ctx.arc(0, 0, vinylDim / 2, 0, Math.PI * 2);
             ctx.clip();
 
-            if (state.vinylAsset) {
-    const va = state.vinylAsset;
-    if (va.tagName === 'VIDEO' && va.readyState >= 2) {
-        va.currentTime = time % va.duration;
-    }
-    // Preserve aspect ratio: fit the asset inside the vinyl circle
-    const assetWidth = va.videoWidth || va.width;
-    const assetHeight = va.videoHeight || va.height;
-    const scale = Math.min(vinylDim / assetWidth, vinylDim / assetHeight);
-    const drawWidth = assetWidth * scale;
-    const drawHeight = assetHeight * scale;
-    const offsetX = -drawWidth / 2;
-    const offsetY = -drawHeight / 2;
-    ctx.drawImage(va, offsetX, offsetY, drawWidth, drawHeight);
-} else {
-    ctx.fillStyle = '#111';
-    ctx.fill();
-    // Decorative grooves
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-    for(let r=10; r < vinylDim/2; r+=15) {
-        ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI*2); ctx.stroke();
-    }
-}
-            ctx.restore();
+            // Vinyl Fill Color
+            if (state.showVinylFill) {
+                ctx.fillStyle = state.vinylFillColor;
+                ctx.fill();
+            }
 
-            // 3. Spindle Hole (Static Layer)
+            if (state.vinylAsset) {
+                const va = state.vinylAsset;
+                if (va.tagName === 'VIDEO' && va.readyState >= 2) va.currentTime = time % va.duration;
+                
+                const assetW = va.videoWidth || va.width;
+                const assetH = va.videoHeight || va.height;
+                const scale = state.vinylFit 
+                    ? Math.min(vinylDim / assetW, vinylDim / assetH)
+                    : Math.max(vinylDim / assetW, vinylDim / assetH);
+
+                const dw = assetW * scale;
+                const dh = assetH * scale;
+                ctx.drawImage(va, -dw/2, -dh/2, dw, dh);
+            } else if (!state.showVinylFill) {
+                ctx.fillStyle = '#111';
+                ctx.fill();
+            }
+
+            // Spindle Donut Hole (Hollow by default)
+            const holeRadius = vinylDim * 0.05;
             ctx.beginPath();
-            ctx.arc(vx, vy, vinylDim * 0.05, 0, Math.PI * 2);
+            ctx.arc(0, 0, holeRadius, 0, Math.PI * 2);
+            ctx.arc(0, 0, holeRadius * 0.7, 0, Math.PI * 2, true);
             ctx.fillStyle = '#000';
-            ctx.fill();
+            ctx.fill('evenodd');
+
+            if (state.showCenterDot) {
+                ctx.beginPath();
+                ctx.arc(0, 0, holeRadius * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+            }
+
+            ctx.restore();
         }
 
-        /**
-         * Asset Setup with Video Buffer Fix
-         */
         async function loadAsset(file) {
             const isVideo = file.type.startsWith('video');
             const url = URL.createObjectURL(file);
-            
             if (isVideo) {
-                state.isStatic = false; // Video breaks loop optimization
+                state.isStatic = false;
                 const vid = document.createElement('video');
-                vid.src = url;
-                vid.muted = true;
-                vid.playsInline = true;
-                vid.loop = true;
-                
-                await new Promise((resolve) => {
-                    vid.onloadeddata = () => {
-                        // Force a decoded frame
-                        vid.play().then(() => {
-                            vid.pause();
-                            resolve();
-                        });
-                    };
-                });
+                vid.src = url; vid.muted = true; vid.playsInline = true; vid.loop = true;
+                await new Promise((res) => { vid.onloadeddata = () => vid.play().then(() => { vid.pause(); res(); }); });
                 return vid;
             } else {
                 const img = new Image();
@@ -289,36 +317,67 @@
             }
         }
 
-        // File Input Listeners
-        document.getElementById('vinylInput').onchange = async (e) => {
-            state.vinylAsset = await loadAsset(e.target.files[0]);
-            drawFrame(state.pausedAt);
-        };
+        // Keyboard Shortcut
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+                e.preventDefault();
+                if (!playPauseBtn.disabled) togglePlay();
+            }
+        });
 
-        document.getElementById('bgInput').onchange = async (e) => {
-            state.bgAsset = await loadAsset(e.target.files[0]);
-            drawFrame(state.pausedAt);
-        };
+        // Drag and Drop Logic
+        canvas.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            canvas.classList.add('drag-over');
+        });
+        canvas.addEventListener('dragleave', () => canvas.classList.remove('drag-over'));
+        canvas.addEventListener('drop', async (e) => {
+            e.preventDefault();
+            canvas.classList.remove('drag-over');
+            const file = e.dataTransfer.files[0];
+            if (!file) return;
 
-        document.getElementById('audioInput').onchange = async (e) => {
-            const file = e.target.files[0];
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX - rect.left) * (canvas.width / rect.width);
+            const y = (e.clientY - rect.top) * (canvas.height / rect.height);
+            const dist = Math.sqrt(Math.pow(x - state.vx, 2) + Math.pow(y - state.vy, 2));
+
+            if (file.type === 'audio/mpeg') {
+                handleAudioFile(file);
+            } else if (dist < state.vRadius) {
+                state.vinylAsset = await loadAsset(file);
+            } else {
+                state.bgAsset = await loadAsset(file);
+            }
+            drawFrame(state.pausedAt);
+        });
+
+        async function handleAudioFile(file) {
             state.audioFile = file;
             state.audioCtx = state.audioCtx || new AudioContext();
             state.audioBuffer = await state.audioCtx.decodeAudioData(await file.arrayBuffer());
-            document.getElementById('playPauseBtn').disabled = false;
+            playPauseBtn.disabled = false;
             document.getElementById('exportBtn').disabled = false;
             document.getElementById('timeTot').textContent = formatTime(state.audioBuffer.duration);
-            document.getElementById('seekBar').max = state.audioBuffer.duration;
-        };
+            seekBar.max = state.audioBuffer.duration;
+        }
 
-        // UI Control Listeners
+        // Input Bindings
+        document.getElementById('vinylInput').onchange = async (e) => { state.vinylAsset = await loadAsset(e.target.files[0]); drawFrame(state.pausedAt); };
+        document.getElementById('bgInput').onchange = async (e) => { state.bgAsset = await loadAsset(e.target.files[0]); drawFrame(state.pausedAt); };
+        document.getElementById('audioInput').onchange = (e) => handleAudioFile(e.target.files[0]);
+        
+        document.getElementById('vinylFitToggle').onchange = (e) => { state.vinylFit = e.target.checked; drawFrame(state.pausedAt); };
+        document.getElementById('bgFitToggle').onchange = (e) => { state.bgFit = e.target.checked; drawFrame(state.pausedAt); };
+        document.getElementById('showVinylFill').onchange = (e) => { state.showVinylFill = e.target.checked; drawFrame(state.pausedAt); };
+        document.getElementById('showCenterDot').onchange = (e) => { state.showCenterDot = e.target.checked; drawFrame(state.pausedAt); };
+        document.getElementById('vinylFillColor').oninput = (e) => { state.vinylFillColor = e.target.value; drawFrame(state.pausedAt); };
+        
         document.getElementById('ratioPresets').onclick = (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
+            const btn = e.target.closest('button'); if (!btn) return;
             state.ratio = btn.dataset.ratio;
             document.querySelectorAll('#ratioPresets button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
             if (state.ratio === '1:1') { canvas.width = 720; canvas.height = 720; }
             else if (state.ratio === '9:16') { canvas.width = 405; canvas.height = 720; }
             else if (state.ratio === '16:9') { canvas.width = 1280; canvas.height = 720; }
@@ -326,43 +385,19 @@
         };
 
         document.getElementById('posPresets').onclick = (e) => {
-            const btn = e.target.closest('button');
-            if (!btn) return;
+            const btn = e.target.closest('button'); if (!btn) return;
             state.vinylPos = btn.dataset.pos;
             document.querySelectorAll('#posPresets button').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             drawFrame(state.pausedAt);
         };
 
-        document.getElementById('vinylSize').oninput = (e) => {
-            state.vinylScale = e.target.value / 100;
-            document.getElementById('sizeVal').textContent = e.target.value + '%';
-            drawFrame(state.pausedAt);
-        };
+        document.getElementById('vinylSize').oninput = (e) => { state.vinylScale = e.target.value / 100; document.getElementById('sizeVal').textContent = e.target.value + '%'; drawFrame(state.pausedAt); };
+        document.getElementById('speedOffset').oninput = (e) => { state.speedOffset = parseInt(e.target.value); document.getElementById('speedVal').textContent = (state.speedOffset >= 0 ? '+' : '') + state.speedOffset; drawFrame(state.pausedAt); };
+        document.getElementById('bgOpacity').oninput = (e) => { state.bgOpacity = e.target.value / 100; document.getElementById('opacityVal').textContent = e.target.value + '%'; drawFrame(state.pausedAt); };
+        document.getElementById('bgColor').oninput = (e) => { state.bgColor = e.target.value; drawFrame(state.pausedAt); };
+        document.getElementById('revToggle').onchange = (e) => { state.revRotation = e.target.checked; drawFrame(state.pausedAt); };
 
-        document.getElementById('speedOffset').oninput = (e) => {
-            state.speedOffset = parseInt(e.target.value);
-            document.getElementById('speedVal').textContent = (state.speedOffset >= 0 ? '+' : '') + state.speedOffset;
-            drawFrame(state.pausedAt);
-        };
-
-        document.getElementById('bgOpacity').oninput = (e) => {
-            state.bgOpacity = e.target.value / 100;
-            document.getElementById('opacityVal').textContent = e.target.value + '%';
-            drawFrame(state.pausedAt);
-        };
-
-        document.getElementById('bgColor').oninput = (e) => {
-            state.bgColor = e.target.value;
-            drawFrame(state.pausedAt);
-        };
-
-        document.getElementById('revToggle').onchange = (e) => {
-            state.revRotation = e.target.checked;
-            drawFrame(state.pausedAt);
-        };
-
-        // Transport & Playback
         const playPauseBtn = document.getElementById('playPauseBtn');
         const seekBar = document.getElementById('seekBar');
 
@@ -393,12 +428,7 @@
         function playbackLoop() {
             if (!state.isPlaying || state.isExporting) return;
             const now = state.audioCtx.currentTime - state.startTime;
-            if (now >= state.audioBuffer.duration) {
-                state.isPlaying = false;
-                state.pausedAt = 0;
-                toggleIcons(false);
-                return;
-            }
+            if (now >= state.audioBuffer.duration) { state.isPlaying = false; state.pausedAt = 0; toggleIcons(false); return; }
             seekBar.value = now;
             document.getElementById('timeCur').textContent = formatTime(now);
             drawFrame(now);
@@ -415,71 +445,41 @@
 
         playPauseBtn.onclick = togglePlay;
 
-        // Export Mechanism
         document.getElementById('exportBtn').onclick = async () => {
             if (state.isPlaying) togglePlay();
             state.isExporting = true;
             state.shouldCancel = false;
-            
             const exportArea = document.getElementById('exportProgress');
             const pBar = document.getElementById('progressBar');
-            const pText = document.getElementById('percentText');
-            const sText = document.getElementById('statusText');
-            
             exportArea.classList.remove('hidden');
             document.getElementById('exportBtn').disabled = true;
 
             try {
-                if (!state.ffmpeg) {
-                    state.ffmpeg = createFFmpeg({ log: false });
-                    await state.ffmpeg.load();
-                }
-
+                if (!state.ffmpeg) { state.ffmpeg = createFFmpeg({ log: false }); await state.ffmpeg.load(); }
                 const fps = 24;
-                // Optimization: Loop if no videos present
                 const loopDuration = 2.0; 
                 const renderDuration = state.isStatic ? loopDuration : state.audioBuffer.duration;
                 const totalFrames = Math.floor(renderDuration * fps);
 
                 for (let i = 0; i < totalFrames; i++) {
                     if (state.shouldCancel) throw new Error("Cancelled");
-                    const t = i / fps;
-                    drawFrame(t);
+                    drawFrame(i / fps);
                     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
                     state.ffmpeg.FS('writeFile', `f_${i.toString().padStart(5,'0')}.jpg`, await fetchFile(blob));
-                    
                     pBar.style.width = ((i / totalFrames) * 100) + '%';
-                    pText.textContent = Math.round((i / totalFrames) * 100) + '%';
-                    sText.textContent = `Processing Frame ${i}/${totalFrames}`;
+                    document.getElementById('percentText').textContent = Math.round((i / totalFrames) * 100) + '%';
                 }
 
-                sText.textContent = "Merging Assets...";
                 state.ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(state.audioFile));
-
-                // Loop if content is static (no video center/bg)
                 const loopArgs = state.isStatic ? ['-stream_loop', '-1'] : [];
-
-                await state.ffmpeg.run(
-                    '-framerate', String(fps),
-                    ...loopArgs,
-                    '-i', 'f_%05d.jpg',
-                    '-i', 'audio.mp3',
-                    '-c:v', 'libx264',
-                    '-preset', 'ultrafast',
-                    '-pix_fmt', 'yuv420p',
-                    '-shortest',
-                    'out.mp4'
-                );
+                await state.ffmpeg.run('-framerate', String(fps), ...loopArgs, '-i', 'f_%05d.jpg', '-i', 'audio.mp3', '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-shortest', 'out.mp4');
 
                 const data = state.ffmpeg.FS('readFile', 'out.mp4');
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
                 link.download = `vinyl_${Date.now()}.mp4`;
                 link.click();
-
-            } catch (e) {
-                console.warn(e);
-            } finally {
+            } catch (e) { console.warn(e); } finally {
                 state.isExporting = false;
                 exportArea.classList.add('hidden');
                 document.getElementById('exportBtn').disabled = false;
@@ -487,16 +487,8 @@
         };
 
         document.getElementById('cancelBtn').onclick = () => state.shouldCancel = true;
-
-        function formatTime(s) {
-            const m = Math.floor(s / 60);
-            const sec = Math.floor(s % 60);
-            return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-        }
-
-        // Initialize empty state
+        function formatTime(s) { const m = Math.floor(s/60); const sec = Math.floor(s%60); return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`; }
         drawFrame(0);
-
     </script>
 </body>
 </html>
