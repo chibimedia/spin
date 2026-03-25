@@ -282,20 +282,12 @@
                 ctx.fill();
             }
 
-            // Spindle Donut Hole (Hollow by default)
-            const holeRadius = vinylDim * 0.05;
-            ctx.beginPath();
-            ctx.arc(0, 0, holeRadius, 0, Math.PI * 2);
-            ctx.arc(0, 0, holeRadius * 0.7, 0, Math.PI * 2, true);
-            ctx.fillStyle = '#000';
-            ctx.fill('evenodd');
-
-            if (state.showCenterDot) {
-                ctx.beginPath();
-                ctx.arc(0, 0, holeRadius * 0.4, 0, Math.PI * 2);
-                ctx.fillStyle = '#000';
-                ctx.fill();
-            }
+   if (state.showCenterDot) {
+    ctx.beginPath();
+    ctx.arc(0, 0, vinylDim * 0.05, 0, Math.PI * 2);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+}
 
             ctx.restore();
         }
