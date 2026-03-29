@@ -72,6 +72,10 @@
                         <input type="range" id="speedOffset" min="-180" max="180" value="0" class="w-full">
                     </div>
                     <div>
+                        <div class="flex justify-between text-[10px] mb-1 font-mono text-blue-400"><span>Hole Size</span><span id="holeSizeVal">5%</span></div>
+                        <input type="range" id="holeSize" min="1" max="15" value="5" class="w-full">
+                    </div>
+                    <div>
                         <span class="text-[10px] block mb-2 uppercase text-slate-500">Alignment</span>
                         <div class="grid grid-cols-3 gap-1.5" id="posPresets">
                             <button data-pos="tl" class="btn-preset">Top L</button>
@@ -97,6 +101,10 @@
                         <div class="flex items-center justify-between">
                             <span class="toggle-label">Solid Pin (Center Dot)</span>
                             <input type="checkbox" id="showCenterDot" class="w-4 h-4 accent-blue-500">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="toggle-label">See-Through Hole</span>
+                            <input type="checkbox" id="showHole" class="w-4 h-4 accent-blue-500">
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="toggle-label">Reverse Direction</span>
@@ -168,7 +176,7 @@
     <script>
         const { createFFmpeg, fetchFile } = FFmpeg;
         const canvas = document.getElementById('mainCanvas');
-        const ctx = canvas.getContext('2d', { alpha: false });
+        const ctx = canvas.getContext('2d');
         
         const state = {
             width: 720, height: 720,
@@ -180,12 +188,14 @@
             bgColor: '#000000',
             bgOpacity: 1.0,
             
-            // New UI states
+            // UI states
             vinylFit: false,
             bgFit: false,
             vinylFillColor: '#000000',
             showVinylFill: true,
             showCenterDot: false,
+            showHole: false,
+            holeSize: 0.05,
 
             audioBuffer: null,
             audioCtx: null,
@@ -207,6 +217,7 @@
         };
 
         function drawFrame(time) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = state.bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -282,14 +293,34 @@
                 ctx.fill();
             }
 
-   if (state.showCenterDot) {
-    ctx.beginPath();
-    ctx.arc(0, 0, vinylDim * 0.05, 0, Math.PI * 2);
-    ctx.fillStyle = '#000';
-    ctx.fill();
-}
+            // Spindle Donut Hole (Visual ring)
+            const holeRadius = vinylDim * 0.05;
+            ctx.beginPath();
+            ctx.arc(0, 0, holeRadius, 0, Math.PI * 2);
+            ctx.arc(0, 0, holeRadius * 0.7, 0, Math.PI * 2, true);
+            ctx.fillStyle = '#000';
+            ctx.fill('evenodd');
+
+            if (state.showCenterDot) {
+                ctx.beginPath();
+                ctx.arc(0, 0, holeRadius * 0.4, 0, Math.PI * 2);
+                ctx.fillStyle = '#000';
+                ctx.fill();
+            }
 
             ctx.restore();
+
+            // 3. See-Through Hole Punch
+            if (state.showHole) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'destination-out';
+                ctx.beginPath();
+                const actualHoleRadius = Math.min(canvas.width, canvas.height) * state.vinylScale * state.holeSize;
+                ctx.arc(state.vx, state.vy, actualHoleRadius, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,1)';
+                ctx.fill();
+                ctx.restore();
+            }
         }
 
         async function loadAsset(file) {
@@ -363,8 +394,15 @@
         document.getElementById('bgFitToggle').onchange = (e) => { state.bgFit = e.target.checked; drawFrame(state.pausedAt); };
         document.getElementById('showVinylFill').onchange = (e) => { state.showVinylFill = e.target.checked; drawFrame(state.pausedAt); };
         document.getElementById('showCenterDot').onchange = (e) => { state.showCenterDot = e.target.checked; drawFrame(state.pausedAt); };
+        document.getElementById('showHole').onchange = (e) => { state.showHole = e.target.checked; drawFrame(state.pausedAt); };
         document.getElementById('vinylFillColor').oninput = (e) => { state.vinylFillColor = e.target.value; drawFrame(state.pausedAt); };
         
+        document.getElementById('holeSize').oninput = (e) => { 
+            state.holeSize = e.target.value / 100; 
+            document.getElementById('holeSizeVal').textContent = e.target.value + '%'; 
+            drawFrame(state.pausedAt); 
+        };
+
         document.getElementById('ratioPresets').onclick = (e) => {
             const btn = e.target.closest('button'); if (!btn) return;
             state.ratio = btn.dataset.ratio;
