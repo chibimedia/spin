@@ -270,10 +270,10 @@
             ctx.clip();
 
             // Vinyl Fill Color
-            if (state.showVinylFill) {
-                ctx.fillStyle = state.vinylFillColor;
-                ctx.fill();
-            }
+          if (state.showVinylFill) {
+    ctx.fillStyle = state.vinylFillColor;
+    ctx.fillRect(-vinylDim / 2, -vinylDim / 2, vinylDim, vinylDim);
+}
 
             if (state.vinylAsset) {
                 const va = state.vinylAsset;
@@ -294,12 +294,12 @@
 }
 
             // Spindle Donut Hole (Visual ring)
-       if (state.showCenterDot) {
-                ctx.beginPath();
-                ctx.arc(0, 0, holeRadius * 0.4, 0, Math.PI * 2);
-                ctx.fillStyle = '#000';
-                ctx.fill();
-            }
+   if (state.showCenterDot) {
+    ctx.beginPath();
+    ctx.arc(0, 0, vinylDim * state.holeSize, 0, Math.PI * 2);
+    ctx.fillStyle = '#000';
+    ctx.fill();
+}
 
             ctx.restore();
 
