@@ -16,7 +16,7 @@
         .btn-preset { @apply px-2 py-2 bg-slate-800 hover:bg-blue-600 rounded text-[9px] uppercase font-bold transition text-center border border-slate-700; }
         .btn-preset.active { @apply bg-blue-500 border-blue-400 text-white shadow-lg shadow-blue-500/20; }
         input[type=range] { @apply h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500; }
-        canvas { background-color: v-bind('state.bgColor'); transition: outline 0.2s ease; }
+        canvas { background: transparent; transition: outline 0.2s ease; }
         canvas.drag-over { outline: 4px solid #3b82f6 !important; outline-offset: 4px; }
         .toggle-label { @apply text-[10px] uppercase font-bold text-slate-500 tracking-tighter; }
     </style>
