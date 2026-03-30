@@ -288,10 +288,10 @@
                 const dw = assetW * scale;
                 const dh = assetH * scale;
                 ctx.drawImage(va, -dw/2, -dh/2, dw, dh);
-            } else if (!state.showVinylFill) {
-                ctx.fillStyle = '#111';
-                ctx.fill();
-            }
+         } else if (!state.showVinylFill) {
+    ctx.fillStyle = '#111';
+    ctx.fillRect(-vinylDim / 2, -vinylDim / 2, vinylDim, vinylDim);
+}
 
             // Spindle Donut Hole (Visual ring)
        if (state.showCenterDot) {
