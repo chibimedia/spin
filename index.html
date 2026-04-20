@@ -643,7 +643,6 @@
                 
                 for (let i = 0; i < totalFrames; i++) {
                     if (state.shouldCancel) throw new Error("Cancelled by user");
-                    // Sync frame time to trim start
                     drawFrame(state.trimStart + (i / fps));
                     const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
                     state.ffmpeg.FS('writeFile', `f_${i.toString().padStart(5,'0')}.jpg`, await fetchFile(blob));
@@ -660,7 +659,6 @@
                 const artist = state.textElements.find(t=>t.id==='artist').text || "";
                 const title = state.textElements.find(t=>t.id==='title').text || "";
 
-                // Trim flags: -ss before -i for fast seeking
                 await state.ffmpeg.run(
                     '-framerate', String(fps), 
                     ...loopArgs, 
@@ -683,25 +681,26 @@
                 label.textContent = "Done!";
             } catch (e) { 
                 label.textContent = "Export failed: " + e.message;
-                console.warn(e); 
-  finally {
-    // Cleanup Memory Leak (Feature 1)
-    if (state.ffmpeg) {
-        try {
-            const files = state.ffmpeg.FS('readdir', '/');
-            files.forEach(f => {
-                if (f.startsWith('f_') || f === 'thumb.jpg' || f === 'temp.mp4' || f === 'audio_raw.mp3' || f === 'out.mp4') {
-                    state.ffmpeg.FS('unlink', f);
+                console.warn(e);
+            } finally {
+                // Cleanup Memory Leak
+                if (state.ffmpeg) {
+                    try {
+                        const files = state.ffmpeg.FS('readdir', '/');
+                        files.forEach(f => {
+                            if (f.startsWith('f_') || f === 'thumb.jpg' || f === 'temp.mp4' || f === 'audio_raw.mp3' || f === 'out.mp4') {
+                                state.ffmpeg.FS('unlink', f);
+                            }
+                        });
+                    } catch(err) {}
                 }
-            });
-        } catch(err) {}
-    }
 
-    state.isExporting = false; 
-    state.showWaveform = originalWaveform;
-    document.getElementById('exportBtn').disabled = false;
-    setTimeout(() => { if(!state.isExporting) exportArea.classList.add('hidden'); }, 3000);
-}
+                state.isExporting = false; 
+                state.showWaveform = originalWaveform;
+                document.getElementById('exportBtn').disabled = false;
+                setTimeout(() => { if(!state.isExporting) exportArea.classList.add('hidden'); }, 3000);
+            }
+        }
 
         // --- UI ---
         function initTextControls() {
