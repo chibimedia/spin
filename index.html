@@ -15,6 +15,7 @@
             --bg-sidebar: #0f0f0f;
             --bg-canvas: #050505;
             --bg-panel: #1a1a1a;
+            --bg-tertiary: #242424;
             --border-subtle: #2a2a2a;
             --accent: #00e5ff;
             --text-primary: #ffffff;
@@ -28,15 +29,16 @@
             color: var(--text-primary);
             scrollbar-gutter: stable; 
             font-family: ui-sans-serif, system-ui, sans-serif;
-            overflow-x: hidden;
+            overflow: hidden;
         }
 
         aside { background-color: var(--bg-sidebar); border-color: var(--border-subtle); }
-        .control-group { border-bottom: 1px solid var(--border-subtle); padding-bottom: 1.25rem; margin-bottom: 1.25rem; }
-        .panel-bg { background-color: var(--bg-panel); border: 1px solid var(--border-subtle); border-radius: var(--radius); }
+        
+        .panel-dominant { background-color: #121212; border: 1px solid #333; border-radius: var(--radius); padding: 0.75rem; }
+        .panel-tertiary { background-color: var(--bg-tertiary); border: 1px solid var(--border-subtle); border-radius: 4px; padding: 0.5rem; }
         
         .btn-preset { 
-            @apply flex items-center justify-center gap-2 px-2 py-2 rounded text-[9px] uppercase font-bold transition border;
+            @apply flex items-center justify-center gap-2 px-2 py-2 rounded text-[10px] uppercase font-bold transition border;
             background-color: var(--bg-panel);
             border-color: var(--border-subtle);
             color: var(--text-secondary);
@@ -46,7 +48,7 @@
             background-color: var(--accent); 
             border-color: var(--accent); 
             color: #000; 
-            box-shadow: 0 0 15px var(--accent);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
         }
 
         input[type=range] { 
@@ -63,191 +65,185 @@
             border-radius: 4px;
         }
 
-        canvas { 
-            background: var(--bg-canvas); 
-            transition: outline 0.2s ease; 
-            cursor: crosshair;
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-        }
-        canvas.drag-over { outline: 3px solid var(--accent) !important; outline-offset: 4px; }
+        canvas { background: var(--bg-canvas); cursor: crosshair; }
 
-        .toggle-label { @apply text-[9px] uppercase font-bold tracking-tighter; color: var(--text-muted); }
-        .clear-btn { @apply text-[9px] uppercase font-bold ml-2 cursor-pointer transition; color: #ef4444; }
-        .section-header { @apply flex justify-between items-center mb-3; }
-        .reset-section-btn { @apply text-xs opacity-30 hover:opacity-100 transition cursor-pointer; }
-
-        /* Pinned Footer */
-        .sidebar-scroll { flex: 1; overflow-y: auto; padding: 1.5rem; }
-        .sidebar-pinned { 
-            background-color: var(--bg-sidebar); 
-            border-top: 1px solid var(--border-subtle); 
-            padding: 1.25rem 1.5rem; 
+        .tab-btn { 
+            @apply flex-1 py-3 text-[10px] uppercase font-black tracking-widest transition-all border-b-2 border-transparent;
+            color: var(--text-muted);
         }
+        .tab-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(0, 229, 255, 0.05); }
+
+        .toggle-label-sm { @apply text-[9px] uppercase font-bold tracking-tighter; color: var(--text-muted); }
+        .reset-section-btn { @apply text-xs opacity-30 hover:opacity-100 transition cursor-pointer text-cyan-400; }
+        
+        .sidebar-zone { flex: none; }
+        .sidebar-scrollable { flex: 1; overflow-y: auto; padding: 1.25rem; }
+        .pinned-footer { border-top: 1px solid var(--border-subtle); padding: 1.25rem; background: var(--bg-sidebar); }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
     </style>
 </head>
-<body class="min-h-screen">
+<body class="h-screen flex items-center justify-center">
 
-    <div class="max-w-[1600px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-0">
+    <div class="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
         
-        <aside class="lg:col-span-3 h-screen flex flex-col border-r" id="sidebar">
+        <aside class="lg:col-span-3 h-screen flex flex-col border-r">
             
-            <div class="sidebar-scroll">
-                <header class="mb-6 flex justify-between items-center">
-                    <h1 class="text-2xl font-black tracking-tighter">
+            <div class="sidebar-zone p-5 border-b border-white/5">
+                <header class="mb-5 flex justify-between items-center">
+                    <h1 class="text-xl font-black tracking-tighter">
                         <span style="color: var(--accent)">VINYL</span>GEN
                     </h1>
                     <button onclick="globalReset()" class="text-[9px] uppercase font-bold text-red-500 border border-red-500/30 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition">Full Reset</button>
                 </header>
 
-                <div class="control-group">
-                    <div class="section-header">
-                        <label class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-muted)">1. Load Content</label>
-                        <span class="reset-section-btn" onclick="resetSection('assets')">↺</span>
+                <div class="space-y-3">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-500">Vinyl Center</span>
+                            <button class="text-[9px] uppercase font-bold text-red-400" onclick="clearAsset('vinyl')">Clear</button>
+                        </div>
+                        <input type="file" id="vinylInput" accept="image/*,video/*" class="w-full text-[10px] p-1.5 panel-tertiary">
                     </div>
-                    <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-xs" style="color: var(--text-secondary)">Vinyl Center</span>
-                                <button class="clear-btn" onclick="clearAsset('vinyl')">Clear</button>
-                            </div>
-                            <input type="file" id="vinylInput" accept="image/*,video/*" class="w-full text-xs p-1.5 panel-bg">
+                    <div>
+                        <div class="flex justify-between items-center mb-1">
+                            <span class="text-[10px] uppercase font-bold text-slate-500">Background</span>
+                            <button class="text-[9px] uppercase font-bold text-red-400" onclick="clearAsset('bg')">Clear</button>
                         </div>
-                        <div>
-                            <div class="flex justify-between items-center mb-1">
-                                <span class="text-xs" style="color: var(--text-secondary)">Background</span>
-                                <button class="clear-btn" onclick="clearAsset('bg')">Clear</button>
-                            </div>
-                            <input type="file" id="bgInput" accept="image/*,video/*" class="w-full text-xs p-1.5 panel-bg">
-                        </div>
-                        <div>
-                            <span class="text-xs mb-1 block" style="color: var(--text-secondary)">Audio</span>
-                            <input type="file" id="audioInput" accept="audio/*" class="w-full text-xs p-1.5 panel-bg">
-                        </div>
-                        <div>
-                            <span class="text-[9px] font-bold text-cyan-400 block mb-1">BATCH UPLOAD</span>
-                            <input type="file" id="batchInput" multiple accept="audio/*" class="w-full text-xs p-1.5 panel-bg border-dashed border-cyan-900">
-                            <div id="batchQueue" class="mt-2 space-y-1 max-h-24 overflow-y-auto text-[9px] font-mono text-slate-500"></div>
-                        </div>
+                        <input type="file" id="bgInput" accept="image/*,video/*" class="w-full text-[10px] p-1.5 panel-tertiary">
                     </div>
-                </div>
-
-                <div class="control-group">
-                    <div class="section-header">
-                        <label class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-muted)">2. Format</label>
-                        <span class="reset-section-btn" onclick="resetSection('format')">↺</span>
+                    <div>
+                        <span class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Audio (select multiple for batch)</span>
+                        <input type="file" id="audioInput" multiple accept="audio/*" class="w-full text-[10px] p-1.5 panel-tertiary border-dashed border-cyan-900/50">
+                        <div id="batchQueue" class="mt-2 space-y-1 max-h-20 overflow-y-auto text-[9px] font-mono text-slate-500"></div>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 mb-4" id="ratioPresets">
-                        <button data-ratio="1:1" class="btn-preset active">1:1 Square</button>
-                        <button data-ratio="9:16" class="btn-preset">9:16 Port</button>
-                        <button data-ratio="16:9" class="btn-preset">16:9 Wide</button>
-                        <button data-ratio="spotify" class="btn-preset">Spotify</button>
-                    </div>
-                    <div class="panel-bg p-3">
-                        <div class="flex items-center justify-between">
-                            <span class="toggle-label" style="color: var(--accent)">Express Mode (Static)</span>
-                            <input type="checkbox" id="expressMode" class="w-4 h-4">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <div class="section-header">
-                        <label class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-muted)">3. Vinyl Design</label>
-                        <span class="reset-section-btn" onclick="resetSection('vinyl')">↺</span>
-                    </div>
-                    <div class="space-y-4">
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-1 font-mono"><span>Vinyl Opacity</span><span id="vOpVal">100%</span></div>
-                            <input type="range" id="vinylOpacity" min="0" max="100" value="100" class="w-full">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-1 font-mono"><span>Scale</span><span id="sizeVal">70%</span></div>
-                            <input type="range" id="vinylSize" min="10" max="150" value="70" class="w-full">
-                        </div>
-                        <div id="spinControls">
-                            <div class="flex justify-between text-[10px] mb-1 font-mono"><span>Speed Offset</span><span id="speedVal">-125</span></div>
-                            <input type="range" id="speedOffset" min="-180" max="180" value="-125" class="w-full">
-                        </div>
-
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label">Fit Img</span><input type="checkbox" id="vinylFitToggle" class="w-3 h-3"></div>
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label">Fill</span><input type="checkbox" id="showVinylFill" checked class="w-3 h-3"></div>
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label">See-Thru</span><input type="checkbox" id="showHole" class="w-3 h-3"></div>
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label">Pin</span><input type="checkbox" id="showCenterDot" class="w-3 h-3"></div>
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label">Reverse</span><input type="checkbox" id="revToggle" class="w-3 h-3"></div>
-                        </div>
-
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-1 font-mono"><span>Hole Size</span><span id="holeSizeVal">5%</span></div>
-                            <input type="range" id="holeSize" min="1" max="15" value="5" class="w-full">
-                        </div>
-
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs">Base Color</span>
-                            <input type="color" id="vinylFillColor" value="#ffffff" class="bg-transparent border-none w-8 h-8 cursor-pointer">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="control-group">
-                    <div class="section-header">
-                        <label class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-muted)">4. Backdrop</label>
-                        <span class="reset-section-btn" onclick="resetSection('backdrop')">↺</span>
-                    </div>
-                    <div class="space-y-4">
-                        <div class="grid grid-cols-2 gap-2">
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label">Fit Bg</span><input type="checkbox" id="bgFitToggle" class="w-3 h-3"></div>
-                            <div class="panel-bg p-2 flex items-center justify-between"><span class="toggle-label" style="color: var(--accent)">Waveform</span><input type="checkbox" id="showWaveform" class="w-3 h-3"></div>
-                        </div>
-                        <div class="flex items-center justify-between">
-                            <span class="text-xs">Base Color</span>
-                            <input type="color" id="bgColor" value="#000000" class="bg-transparent border-none w-8 h-8 cursor-pointer">
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-[10px] mb-1 font-mono"><span>Opacity</span><span id="opacityVal">100%</span></div>
-                            <input type="range" id="bgOpacity" min="0" max="100" value="100" class="w-full">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="control-group mb-0 border-none">
-                    <div class="section-header">
-                        <label class="text-[10px] font-bold uppercase tracking-widest" style="color: var(--text-muted)">5. Text Overlays</label>
-                        <span class="reset-section-btn" onclick="resetSection('text')">↺</span>
-                    </div>
-                    <div id="textOverlayControls" class="space-y-2"></div>
                 </div>
             </div>
 
-            <div class="sidebar-pinned">
-                <div class="flex gap-2 mb-4">
-                    <select id="exportRes" class="flex-1 text-[10px] uppercase font-bold">
-                        <option value="720">720p Export</option>
-                        <option value="1080">1080p Export</option>
-                    </select>
+            <div class="sidebar-zone flex border-b border-white/5">
+                <button onclick="switchTab('format')" id="tab-format-btn" class="tab-btn active">Format</button>
+                <button onclick="switchTab('vinyl')" id="tab-vinyl-btn" class="tab-btn">Vinyl</button>
+                <button onclick="switchTab('scene')" id="tab-scene-btn" class="tab-btn">Scene</button>
+            </div>
+
+            <div class="sidebar-scrollable">
+                
+                <div id="tab-format" class="tab-content space-y-6">
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-3">Aspect Ratio</label>
+                        <div class="grid grid-cols-2 gap-2" id="ratioPresets">
+                            <button data-ratio="1:1" class="btn-preset active">1:1 Square</button>
+                            <button data-ratio="9:16" class="btn-preset">9:16 Port</button>
+                            <button data-ratio="16:9" class="btn-preset">16:9 Wide</button>
+                            <button data-ratio="spotify" class="btn-preset">Spotify</button>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block mb-2">Target Resolution</label>
+                        <select id="exportRes" class="w-full text-xs font-bold py-2">
+                            <option value="720">720p HD</option>
+                            <option value="1080">1080p Full HD</option>
+                        </select>
+                    </div>
+                    <div class="panel-dominant flex items-center justify-between">
+                        <span class="text-[10px] uppercase font-bold text-cyan-400">Express Mode (Static)</span>
+                        <input type="checkbox" id="expressMode" class="w-4 h-4">
+                    </div>
                 </div>
-                <button id="exportBtn" disabled class="w-full py-4 bg-white text-black rounded-xl font-black text-sm uppercase transition hover:opacity-90 disabled:opacity-20">
+
+                <div id="tab-vinyl" class="tab-content hidden space-y-5">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Physical Design</span>
+                        <span class="reset-section-btn" onclick="resetSection('vinyl')">↺</span>
+                    </div>
+                    
+                    <div class="space-y-3 panel-dominant">
+                        <div>
+                            <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Scale</span><span id="sizeVal">70%</span></div>
+                            <input type="range" id="vinylSize" min="10" max="150" value="70" class="w-full">
+                        </div>
+                        <div id="spinControls">
+                            <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Speed Offset</span><span id="speedVal">-125</span></div>
+                            <input type="range" id="speedOffset" min="-180" max="180" value="-125" class="w-full">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">Fit Img</span><input type="checkbox" id="vinylFitToggle" class="w-3 h-3"></div>
+                        <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">Show Fill</span><input type="checkbox" id="showVinylFill" checked class="w-3 h-3"></div>
+                        <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">See-Thru</span><input type="checkbox" id="showHole" class="w-3 h-3"></div>
+                        <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">Solid Pin</span><input type="checkbox" id="showCenterDot" class="w-3 h-3"></div>
+                        <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">Reverse</span><input type="checkbox" id="revToggle" class="w-3 h-3"></div>
+                    </div>
+
+                    <div class="panel-tertiary space-y-4">
+                        <div>
+                            <div class="flex justify-between text-[9px] mb-1 font-bold uppercase text-slate-500"><span>Hole Size</span><span id="holeSizeVal">5%</span></div>
+                            <input type="range" id="holeSize" min="1" max="15" value="5" class="w-full">
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-[9px] font-bold uppercase text-slate-500">Base Color</span>
+                            <input type="color" id="vinylFillColor" value="#ffffff" class="bg-transparent border-none w-6 h-6 cursor-pointer">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="tab-scene" class="tab-content hidden space-y-6">
+                    <div class="space-y-4">
+                        <div class="flex justify-between items-center">
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Backdrop</span>
+                            <span class="reset-section-btn" onclick="resetSection('scene')">↺</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">Fit Bg</span><input type="checkbox" id="bgFitToggle" class="w-3 h-3"></div>
+                            <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm" style="color: var(--accent)">Waveform</span><input type="checkbox" id="showWaveform" class="w-3 h-3"></div>
+                        </div>
+                        <div class="panel-dominant space-y-3">
+                            <div class="flex items-center justify-between">
+                                <span class="text-[10px] font-bold uppercase text-slate-400">Color</span>
+                                <input type="color" id="bgColor" value="#000000" class="bg-transparent border-none w-6 h-6 cursor-pointer">
+                            </div>
+                            <div>
+                                <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Opacity</span><span id="opacityVal">100%</span></div>
+                                <input type="range" id="bgOpacity" min="0" max="100" value="100" class="w-full">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="textSection" class="hidden space-y-4 pt-4 border-t border-white/5">
+                        <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Text Overlays</label>
+                        <div id="textOverlayControls" class="space-y-3"></div>
+                    </div>
+                </div>
+
+            </div>
+
+            <div class="pinned-footer">
+                <button id="exportBtn" disabled class="w-full py-4 bg-white text-black rounded-xl font-black text-sm uppercase transition hover:opacity-90 disabled:opacity-20 active:scale-[0.98]">
                     Export Video
                 </button>
                 <div id="exportProgress" class="hidden mt-4 space-y-2">
                     <div class="flex justify-between text-[10px] font-bold uppercase"><span id="statusText">Rendering...</span><span id="percentText">0%</span></div>
                     <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div id="progressBar" class="h-full w-0 bg-cyan-400"></div>
+                        <div id="progressBar" class="h-full w-0 bg-cyan-400 transition-all duration-300"></div>
                     </div>
-                    <button id="cancelBtn" class="w-full text-[10px] font-bold text-red-400 uppercase pt-1">Stop Export</button>
+                    <button id="cancelBtn" class="w-full text-[10px] font-bold text-red-400 uppercase pt-1 hover:text-red-300">Stop Export</button>
                 </div>
             </div>
         </aside>
 
-        <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-slate-950/40 relative">
+        <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-black relative">
             
             <div class="relative max-h-[70vh] flex items-center justify-center">
-                <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-full rounded-sm outline outline-1 outline-white/10"></canvas>
+                <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-full rounded-sm shadow-[0_0_100px_rgba(0,0,0,0.5)]"></canvas>
             </div>
 
-            <div class="w-full max-w-2xl mt-8">
-                <div class="bg-black/60 border border-white/10 backdrop-blur-md rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl">
-                    <button id="playPauseBtn" disabled class="w-10 h-10 flex-shrink-0 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition disabled:opacity-20">
+            <div class="w-full max-w-2xl mt-10">
+                <div class="bg-[#111]/80 border border-white/10 backdrop-blur-xl rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl">
+                    <button id="playPauseBtn" disabled class="w-11 h-11 flex-shrink-0 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition disabled:opacity-20">
                         <svg id="playIcon" class="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
                         <svg id="pauseIcon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                     </button>
@@ -260,7 +256,7 @@
                         </div>
                     </div>
                 </div>
-                <p class="text-[9px] text-center uppercase tracking-widest font-bold text-slate-500 mt-4">
+                <p class="text-[9px] text-center uppercase tracking-widest font-bold text-slate-600 mt-5">
                     💡 Drag vinyl or text on canvas to reposition.
                 </p>
             </div>
@@ -277,7 +273,7 @@
         const FONT_MAP = { 'Sans': 'Arial, sans-serif', 'Serif': 'Georgia, serif', 'Mono': '"Courier New", monospace', 'Bold': 'Impact, sans-serif' };
 
         let state = {
-            width: 720, height: 720, ratio: '1:1', res: 720,
+            width: 720, height: 720, ratio: '1:1', res: 720, activeTab: 'format',
             vinylScale: 0.7, vinylX: 0.5, vinylY: 0.5,
             revRotation: false, speedOffset: -125,
             bgColor: '#000000', bgOpacity: 1.0, vinylOpacity: 1.0, expressMode: false,
@@ -295,33 +291,33 @@
             startTime: 0, pausedAt: 0, isPlaying: false,
             vinylAsset: null, bgAsset: null, isStatic: true,
             ffmpeg: null, isExporting: false, shouldCancel: false,
-            vx: 360, vy: 360, vRadius: 252, draggedItem: null, // "vinyl" or text element object
-            batchFiles: [], batchIndex: -1, currentAudioName: "vinyl_gen"
+            vx: 360, vy: 360, vRadius: 252, draggedItem: null,
+            batchFiles: [], currentAudioName: "vinyl_gen"
         };
 
         const INITIAL_STATE = JSON.parse(JSON.stringify(state));
 
-        // --- PERSISTENCE ---
+        // --- STORAGE ---
         function saveToStorage() {
             const data = {...state};
             const keysToRemove = ['audioBuffer', 'audioCtx', 'sourceNode', 'analyser', 'dataArray', 'vinylAsset', 'bgAsset', 'ffmpeg', 'batchFiles'];
             keysToRemove.forEach(k => delete data[k]);
-            localStorage.setItem('vinyl_gen_v2_settings', JSON.stringify(data));
+            localStorage.setItem('vinyl_gen_v3_settings', JSON.stringify(data));
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('vinyl_gen_v2_settings');
+            const saved = localStorage.getItem('vinyl_gen_v3_settings');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 state = {...state, ...parsed};
-                syncUI();
             }
+            syncUI();
+            switchTab(state.activeTab);
         }
 
         function syncUI() {
             document.getElementById('vinylSize').value = state.vinylScale * 100;
             document.getElementById('speedOffset').value = state.speedOffset;
-            document.getElementById('vinylOpacity').value = state.vinylOpacity * 100;
             document.getElementById('expressMode').checked = state.expressMode;
             document.getElementById('showCenterDot').checked = state.showCenterDot;
             document.getElementById('showHole').checked = state.showHole;
@@ -338,44 +334,56 @@
             
             document.getElementById('sizeVal').textContent = Math.round(state.vinylScale*100)+'%';
             document.getElementById('speedVal').textContent = state.speedOffset;
-            document.getElementById('vOpVal').textContent = Math.round(state.vinylOpacity*100)+'%';
             document.getElementById('holeSizeVal').textContent = Math.round(state.holeSize*100)+'%';
             document.getElementById('opacityVal').textContent = Math.round(state.bgOpacity*100)+'%';
+
+            // Active Ratio Button
+            document.querySelectorAll('#ratioPresets button').forEach(b => {
+                b.classList.toggle('active', b.dataset.ratio === state.ratio);
+            });
 
             applyResolution(state.res);
             initTextControls();
         }
 
+        function switchTab(tab) {
+            state.activeTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
+            document.getElementById(`tab-${tab}-btn`).classList.add('active');
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            saveToStorage();
+        }
+
         function globalReset() {
             if (confirm('Reset all settings to defaults? Your loaded assets will not be cleared.')) {
-                const assets = { vinyl: state.vinylAsset, bg: state.bgAsset, audio: state.audioFile };
+                const assets = { vinyl: state.vinylAsset, bg: state.bgAsset };
                 state = JSON.parse(JSON.stringify(INITIAL_STATE));
-                state.vinylAsset = assets.vinyl; state.bgAsset = assets.bg; state.audioFile = assets.audio;
-                syncUI();
-                drawFrame(0);
-                saveToStorage();
+                state.vinylAsset = assets.vinyl; state.bgAsset = assets.bg;
+                syncUI(); drawFrame(0); saveToStorage();
             }
         }
 
         function resetSection(section) {
             const defaults = JSON.parse(JSON.stringify(INITIAL_STATE));
-            if (section === 'format') {
-                state.ratio = defaults.ratio; state.expressMode = defaults.expressMode;
-            } else if (section === 'vinyl') {
-                ['vinylScale', 'vinylX', 'vinylY', 'revRotation', 'speedOffset', 'vinylOpacity', 'vinylFit', 'showVinylFill', 'showHole', 'showCenterDot', 'holeSize', 'vinylFillColor'].forEach(k => state[k] = defaults[k]);
-            } else if (section === 'backdrop') {
+            if (section === 'vinyl') {
+                ['vinylScale', 'vinylX', 'vinylY', 'revRotation', 'speedOffset', 'vinylFit', 'showVinylFill', 'showHole', 'showCenterDot', 'holeSize', 'vinylFillColor'].forEach(k => state[k] = defaults[k]);
+            } else if (section === 'scene') {
                 ['bgFit', 'showWaveform', 'bgColor', 'bgOpacity'].forEach(k => state[k] = defaults[k]);
-            } else if (section === 'text') {
-                state.textElements = defaults.textElements;
+                // Reset positions only for text
+                state.textElements.forEach((el, i) => {
+                    el.x = defaults.textElements[i].x;
+                    el.y = defaults.textElements[i].y;
+                    el.fontSize = defaults.textElements[i].fontSize;
+                    el.shadow = defaults.textElements[i].shadow;
+                });
             }
             syncUI(); drawFrame(state.pausedAt); saveToStorage();
         }
 
-        // --- RENDERING ---
+        // --- RENDER ENGINE ---
         function drawFrame(time) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Background
             ctx.fillStyle = state.bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
@@ -392,7 +400,6 @@
                 ctx.restore();
             }
 
-            // Waveform
             if (state.showWaveform && state.analyser) {
                 state.analyser.getByteFrequencyData(state.dataArray);
                 ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
@@ -405,10 +412,8 @@
                 }
             }
 
-            // Vinyl Composite
             const angle = state.expressMode ? 0 : (time * (180 + state.speedOffset) * (state.revRotation ? -1 : 1)) % 360;
             const vinylDim = Math.min(canvas.width, canvas.height) * state.vinylScale;
-            
             state.vx = state.vinylX * canvas.width;
             state.vy = state.vinylY * canvas.height;
             state.vRadius = vinylDim / 2;
@@ -431,8 +436,7 @@
             if (state.vinylAsset) {
                 const va = state.vinylAsset;
                 if (va.tagName === 'VIDEO' && va.readyState >= 2) va.currentTime = time % va.duration;
-                const assetW = va.videoWidth || va.width;
-                const assetH = va.videoHeight || va.height;
+                const assetW = va.videoWidth || va.width, assetH = va.videoHeight || va.height;
                 const targetW = offscreenCanvas.width, targetH = offscreenCanvas.height;
                 const scale = state.vinylFit ? Math.min(targetW / assetW, targetH / assetH) : Math.max(targetW / assetW, targetH / assetH);
                 const dw = assetW * scale, dh = assetH * scale;
@@ -451,7 +455,6 @@
             offCtx.restore();
 
             ctx.save();
-            ctx.globalAlpha = state.vinylOpacity;
             if (state.expressMode) {
                 ctx.drawImage(offscreenCanvas, 0, 0);
             } else {
@@ -461,7 +464,6 @@
             }
             ctx.restore();
 
-            // Text
             state.textElements.forEach(el => {
                 if (!el.show || !el.text.trim()) return;
                 ctx.save();
@@ -475,24 +477,18 @@
             });
         }
 
-        // --- DRAG LOGIC ---
+        // --- DRAG ---
         canvas.onmousedown = (e) => {
             const r = canvas.getBoundingClientRect();
             const mx = (e.clientX - r.left) / r.width, my = (e.clientY - r.top) / r.height;
-            
-            // Check Text
             for (let i = state.textElements.length - 1; i >= 0; i--) {
                 const el = state.textElements[i]; if (!el.show) continue;
                 ctx.font = `${el.fontSize}px ${FONT_MAP[el.fontFamily]}`;
                 const w = ctx.measureText(el.text).width / canvas.width, h = el.fontSize / canvas.height;
                 if (Math.abs(mx - el.x) < w/2 && Math.abs(my - el.y) < h/2) { state.draggedItem = el; return; }
             }
-
-            // Check Vinyl
             const dist = Math.sqrt(Math.pow(mx - state.vinylX, 2) + Math.pow(my - state.vinylY, 2));
-            if (dist * canvas.width < state.vRadius) {
-                state.draggedItem = "vinyl";
-            }
+            if (dist * (canvas.width/r.width) * r.width < state.vRadius) state.draggedItem = "vinyl";
         };
 
         window.onmousemove = (e) => {
@@ -500,18 +496,13 @@
             const r = canvas.getBoundingClientRect();
             const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
             const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-
-            if (state.draggedItem === "vinyl") {
-                state.vinylX = x; state.vinylY = y;
-            } else {
-                state.draggedItem.x = x; state.draggedItem.y = y;
-            }
+            if (state.draggedItem === "vinyl") { state.vinylX = x; state.vinylY = y; }
+            else { state.draggedItem.x = x; state.draggedItem.y = y; }
             drawFrame(state.pausedAt);
         };
-
         window.onmouseup = () => { if(state.draggedItem) saveToStorage(); state.draggedItem = null; };
 
-        // --- AUDIO ---
+        // --- AUDIO & BATCH ---
         async function handleAudioFile(file) {
             state.audioFile = file;
             state.currentAudioName = file.name.replace(/\.[^/.]+$/, "");
@@ -529,7 +520,7 @@
 
         // --- EXPORT ---
         async function runExport() {
-            if (state.batchFiles.length > 0) {
+            if (state.batchFiles.length > 1) {
                 for(let i=0; i<state.batchFiles.length; i++) {
                     if (state.shouldCancel) break;
                     await handleAudioFile(state.batchFiles[i]);
@@ -545,8 +536,7 @@
         async function performSingleExport(filename) {
             state.isExporting = true;
             const originalWaveform = state.showWaveform;
-            state.showWaveform = false; // Disable waveform during export frames
-            
+            state.showWaveform = false;
             const exportArea = document.getElementById('exportProgress');
             const pBar = document.getElementById('progressBar');
             exportArea.classList.remove('hidden');
@@ -579,27 +569,32 @@
                 const data = state.ffmpeg.FS('readFile', 'out.mp4');
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-                link.download = `${filename}.mp4`;
-                link.click();
+                link.download = `${filename}.mp4`; link.click();
             } catch (e) { console.warn(e); } finally {
                 state.isExporting = false; state.showWaveform = originalWaveform;
                 exportArea.classList.add('hidden'); document.getElementById('exportBtn').disabled = false;
+                state.shouldCancel = false;
             }
         }
 
-        // --- UI SYSTEM ---
+        // --- UI REBUILD ---
         function initTextControls() {
             const container = document.getElementById('textOverlayControls');
+            const section = document.getElementById('textSection');
             container.innerHTML = '';
+            
+            const anyShow = state.textElements.some(el => el.show);
+            section.classList.toggle('hidden', !anyShow);
+
             [...state.textElements].reverse().forEach((el, revIdx) => {
                 const idx = state.textElements.length - 1 - revIdx;
                 const div = document.createElement('div');
-                div.className = "panel-bg p-2 mb-2";
+                div.className = "panel-tertiary";
                 div.innerHTML = `
                     <div class="flex items-center justify-between mb-2">
                         <div class="flex items-center gap-2">
-                            <button onclick="moveLayer(${idx}, 1)" class="text-xs hover:text-white">↑</button>
-                            <button onclick="moveLayer(${idx}, -1)" class="text-xs hover:text-white">↓</button>
+                            <button onclick="moveLayer(${idx}, 1)" class="text-[10px] hover:text-cyan-400">↑</button>
+                            <button onclick="moveLayer(${idx}, -1)" class="text-[10px] hover:text-cyan-400">↓</button>
                             <span class="text-[9px] font-bold uppercase text-slate-500">${el.id}</span>
                         </div>
                         <input type="checkbox" ${el.show ? 'checked' : ''} onchange="updateText(${idx}, 'show', this.checked)">
@@ -610,10 +605,10 @@
                             <select onchange="updateText(${idx}, 'fontFamily', this.value)" class="text-[9px] flex-1">
                                 ${Object.keys(FONT_MAP).map(f => `<option value="${f}" ${el.fontFamily===f?'selected':''}>${f}</option>`).join('')}
                             </select>
-                            <input type="color" value="${el.color}" oninput="updateText(${idx}, 'color', this.value)" class="w-6 h-6 bg-transparent">
+                            <input type="color" value="${el.color}" oninput="updateText(${idx}, 'color', this.value)" class="w-5 h-5 bg-transparent border-none">
                         </div>
                         <input type="range" min="10" max="150" value="${el.fontSize}" oninput="updateText(${idx}, 'fontSize', parseInt(this.value))" class="w-full">
-                        <div class="flex items-center justify-between p-1"><span class="toggle-label">Shadow</span><input type="checkbox" ${el.shadow ? 'checked' : ''} onchange="updateText(${idx}, 'shadow', this.checked)"></div>
+                        <div class="flex items-center justify-between"><span class="toggle-label-sm">Shadow</span><input type="checkbox" ${el.shadow ? 'checked' : ''} onchange="updateText(${idx}, 'shadow', this.checked)"></div>
                     </div>
                 `;
                 container.appendChild(div);
@@ -622,6 +617,7 @@
 
         function updateText(idx, key, val) { state.textElements[idx][key] = val; if(key === 'show') initTextControls(); saveToStorage(); drawFrame(state.pausedAt); }
         function moveLayer(idx, dir) { const n = idx + dir; if(n<0||n>=state.textElements.length) return; const t = state.textElements.splice(idx,1)[0]; state.textElements.splice(n,0,t); initTextControls(); saveToStorage(); drawFrame(state.pausedAt); }
+        
         function applyResolution(r) {
             state.res = parseInt(r);
             const scale = state.res / 720;
@@ -631,6 +627,7 @@
             else if (state.ratio === 'spotify') { canvas.width = 1080; canvas.height = 1920; }
             drawFrame(state.pausedAt);
         }
+
         async function loadAsset(file) {
             const url = URL.createObjectURL(file);
             if (file.type.startsWith('video')) {
@@ -639,6 +636,7 @@
             }
             const img = new Image(); img.src = url; await new Promise(r => img.onload = r); return img;
         }
+
         function clearAsset(t) { if(t==='vinyl') state.vinylAsset=null; else state.bgAsset=null; updateStaticFlag(); drawFrame(state.pausedAt); }
         function updateStaticFlag() { state.isStatic = !(state.vinylAsset?.tagName==='VIDEO' || state.bgAsset?.tagName==='VIDEO'); }
         function formatTime(s) { const m=Math.floor(s/60); const sc=Math.floor(s%60); return `${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`; }
@@ -660,12 +658,11 @@
             if (!state.isPlaying || state.isExporting) return;
             const now = state.audioCtx.currentTime - state.startTime;
             if (now >= state.audioBuffer.duration) { state.isPlaying = false; state.pausedAt = 0; toggleIcons(false); return; }
-            document.getElementById('seekBar').value = now;
-            document.getElementById('timeCur').textContent = formatTime(now);
+            document.getElementById('seekBar').value = now; document.getElementById('timeCur').textContent = formatTime(now);
             drawFrame(now); requestAnimationFrame(playbackLoop);
         }
 
-        // Bindings
+        // BINDINGS
         document.getElementById('expressMode').onchange = (e) => { state.expressMode = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('vinylSize').oninput = (e) => { state.vinylScale = e.target.value/100; document.getElementById('sizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('speedOffset').oninput = (e) => { state.speedOffset = parseInt(e.target.value); document.getElementById('speedVal').textContent = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
@@ -673,18 +670,22 @@
         document.getElementById('exportRes').onchange = (e) => { state.res = e.target.value; applyResolution(state.res); saveToStorage(); };
         document.getElementById('ratioPresets').onclick = (e) => { 
             const b = e.target.closest('button'); if(!b) return; 
-            state.ratio = b.dataset.ratio; 
-            document.querySelectorAll('#ratioPresets button').forEach(x=>x.classList.remove('active'));
-            b.classList.add('active'); applyResolution(state.res); saveToStorage();
+            state.ratio = b.dataset.ratio; syncUI(); saveToStorage();
         };
         document.getElementById('vinylInput').onchange = async (e) => { state.vinylAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); };
         document.getElementById('bgInput').onchange = async (e) => { state.bgAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); };
-        document.getElementById('audioInput').onchange = (e) => handleAudioFile(e.target.files[0]);
+        document.getElementById('audioInput').onchange = (e) => {
+            const files = Array.from(e.target.files);
+            state.batchFiles = files;
+            const list = document.getElementById('batchQueue');
+            list.innerHTML = files.map(f => `<div>• ${f.name}</div>`).join('');
+            if(files.length === 1) handleAudioFile(files[0]);
+            else if (files.length > 1) document.getElementById('exportBtn').disabled = false;
+        };
         document.getElementById('playPauseBtn').onclick = togglePlay;
         document.getElementById('exportBtn').onclick = runExport;
         document.getElementById('cancelBtn').onclick = () => state.shouldCancel = true;
-        document.getElementById('seekBar').oninput = (e) => { state.pausedAt = parseFloat(e.target.value); if(state.isPlaying) togglePlay(); document.getElementById('timeCur').textContent = formatTime(state.pausedAt); drawFrame(state.pausedAt); };
-        document.getElementById('vinylOpacity').oninput = (e) => { state.vinylOpacity = e.target.value/100; document.getElementById('vOpVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
+        document.getElementById('seekBar').oninput = (e) => { state.pausedAt = parseFloat(e.target.value); if(state.isPlaying) togglePlay(); drawFrame(state.pausedAt); };
         document.getElementById('holeSize').oninput = (e) => { state.holeSize = e.target.value/100; document.getElementById('holeSizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('vinylFillColor').oninput = (e) => { state.vinylFillColor = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('bgColor').oninput = (e) => { state.bgColor = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
@@ -695,23 +696,16 @@
         document.getElementById('vinylFitToggle').onchange = (e) => { state.vinylFit = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('bgFitToggle').onchange = (e) => { state.bgFit = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('showVinylFill').onchange = (e) => { state.showVinylFill = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
-        document.getElementById('batchInput').onchange = (e) => {
-            state.batchFiles = Array.from(e.target.files);
-            const list = document.getElementById('batchQueue');
-            list.innerHTML = state.batchFiles.map(f => `<div>• ${f.name}</div>`).join('');
-            if(state.batchFiles.length) document.getElementById('exportBtn').disabled = false;
-        };
 
-        // Key shortcuts
-        window.addEventListener('keydown', (e) => {
-            if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
-            if (e.key === 'ArrowLeft') { state.pausedAt = Math.max(0, state.pausedAt - 2); document.getElementById('seekBar').value = state.pausedAt; drawFrame(state.pausedAt); }
-            if (e.key === 'ArrowRight') { state.pausedAt = Math.min(state.audioBuffer?.duration || 0, state.pausedAt + 2); document.getElementById('seekBar').value = state.pausedAt; drawFrame(state.pausedAt); }
-            if (e.key === 'ArrowUp') { state.speedOffset = Math.min(180, state.speedOffset + 10); syncUI(); }
-            if (e.key === 'ArrowDown') { state.speedOffset = Math.max(-180, state.speedOffset - 10); syncUI(); }
-        });
+window.addEventListener('keydown', (e) => {
+    if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+    if (e.code === 'Space') { e.preventDefault(); if(!document.getElementById('playPauseBtn').disabled) togglePlay(); }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); state.pausedAt = Math.max(0, state.pausedAt - 2); document.getElementById('seekBar').value = state.pausedAt; document.getElementById('timeCur').textContent = formatTime(state.pausedAt); drawFrame(state.pausedAt); }
+    if (e.key === 'ArrowRight') { e.preventDefault(); state.pausedAt = Math.min(state.audioBuffer?.duration || 0, state.pausedAt + 2); document.getElementById('seekBar').value = state.pausedAt; document.getElementById('timeCur').textContent = formatTime(state.pausedAt); drawFrame(state.pausedAt); }
+    if (e.key === 'ArrowUp') { e.preventDefault(); state.speedOffset = Math.min(180, state.speedOffset + 10); document.getElementById('speedOffset').value = state.speedOffset; document.getElementById('speedVal').textContent = state.speedOffset; drawFrame(state.pausedAt); }
+    if (e.key === 'ArrowDown') { e.preventDefault(); state.speedOffset = Math.max(-180, state.speedOffset - 10); document.getElementById('speedOffset').value = state.speedOffset; document.getElementById('speedVal').textContent = state.speedOffset; drawFrame(state.pausedAt); }
+});
 
-        // Init
         loadFromStorage();
         drawFrame(0);
     </script>
