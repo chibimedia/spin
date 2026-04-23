@@ -68,9 +68,12 @@
 
         canvas { background: var(--bg-canvas); cursor: crosshair; }
 
-        /* Pill Tabs */
+        /* Pill Tabs – Bigger & More Separated */
+        .tab-bar {
+            @apply flex gap-3 p-2 bg-[#0a0a0a] border-b border-white/5;
+        }
         .tab-pill { 
-            @apply flex-1 py-2 rounded-full text-[10px] uppercase font-black tracking-widest transition-all;
+            @apply flex-1 py-3 rounded-full text-xs uppercase font-black tracking-widest transition-all;
             background: #1a1a1a;
             color: #666;
             border: 1px solid #2a2a2a;
@@ -86,6 +89,7 @@
         #timelineContainer {
             @apply relative w-full h-10 bg-zinc-900 rounded-md mt-6 overflow-visible select-none;
             touch-action: none;
+            border: 1px solid rgba(0, 229, 255, 0.3);
         }
         #waveformCanvas {
             @apply absolute inset-0 w-full h-full opacity-30 pointer-events-none;
@@ -182,8 +186,8 @@
                 </div>
             </div>
 
-            <!-- Pill Tab Bar -->
-            <div class="sidebar-zone flex p-2 gap-1 bg-[#0a0a0a] border-b border-white/5">
+            <!-- Pill Tab Bar (Bigger, More Spaced) -->
+            <div class="tab-bar">
                 <button onclick="switchTab('format')" id="tab-format-btn" class="tab-pill active">Format</button>
                 <button onclick="switchTab('vinyl')" id="tab-vinyl-btn" class="tab-pill">Vinyl</button>
                 <button onclick="switchTab('scene')" id="tab-scene-btn" class="tab-pill">Scene</button>
@@ -313,6 +317,7 @@
             </div>
 
             <div class="w-full max-w-2xl">
+                <!-- Timeline with visible border & handles -->
                 <div id="timelineContainer">
                     <canvas id="waveformCanvas"></canvas>
                     <div id="trimRange"></div>
@@ -324,6 +329,9 @@
                     <span id="timeCur" class="text-xs font-mono font-bold text-cyan-400">00:00</span>
                     <span id="trimInfo" class="text-[9px] font-mono text-slate-500 uppercase font-black">Trim: 0.0s selected</span>
                     <span id="timeTot" class="text-[9px] font-mono text-slate-500 uppercase tracking-tighter">00:00</span>
+                </div>
+                <div class="text-center mt-1">
+                    <span class="text-[8px] text-slate-500 uppercase tracking-wider">← Drag cyan handles to trim →</span>
                 </div>
 
                 <div class="flex justify-center mt-6">
@@ -448,6 +456,10 @@
 
         function globalReset() {
             if (confirm('Reset all settings to defaults? Your loaded assets will not be cleared.')) {
+                // Stop playback if playing
+                if (state.isPlaying) {
+                    togglePlay();
+                }
                 const assets = { vinyl: state.vinylAsset, bg: state.bgAsset };
                 state = JSON.parse(JSON.stringify(INITIAL_STATE));
                 state.vinylAsset = assets.vinyl; state.bgAsset = assets.bg;
@@ -591,7 +603,6 @@
             const container = document.getElementById('timelineContainer');
             wCanvas.width = container.clientWidth;
             wCanvas.height = container.clientHeight;
-            // FIX: Guard against zero width
             if (wCanvas.width === 0 || wCanvas.height === 0) return;
             if (!state.audioBuffer) return;
 
@@ -621,7 +632,6 @@
 
             if (activeHandle === 'start') {
                 state.trimStart = Math.min(target, state.trimEnd - 3);
-                // FIX: Clamp pausedAt if it falls outside new trim range
                 if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
                 if (state.pausedAt > state.trimEnd) state.pausedAt = state.trimEnd;
             } else if (activeHandle === 'end') {
@@ -629,8 +639,19 @@
                 if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
                 if (state.pausedAt > state.trimEnd) state.pausedAt = state.trimEnd;
             } else if (activeHandle === 'playhead') {
-                if (state.isPlaying) togglePlay();
                 state.pausedAt = target;
+                // Seek without pausing
+                if (state.isPlaying) {
+                    if (state.sourceNode) {
+                        try { state.sourceNode.stop(); } catch(e) {}
+                    }
+                    state.sourceNode = state.audioCtx.createBufferSource();
+                    state.sourceNode.buffer = state.audioBuffer;
+                    state.sourceNode.connect(state.gainNode);
+                    state.sourceNode.connect(state.analyser);
+                    state.sourceNode.start(0, state.pausedAt);
+                    state.startTime = state.audioCtx.currentTime - state.pausedAt;
+                }
             }
             updateTimelineUI();
             drawFrame(state.pausedAt);
@@ -886,7 +907,7 @@
                     await preloadFFmpeg();
                 }
 
-                // --- Cleanup VFS (Fix #1) ---
+                // --- Cleanup VFS ---
                 try {
                     const files = state.ffmpeg.FS('readdir', '/');
                     files.forEach(f => {
@@ -988,7 +1009,7 @@
             const batchQueue = document.getElementById('batchQueue');
             if (files.length > 3) {
                 batchError.classList.remove('hidden');
-                batchQueue.innerHTML = '';  // FIX: Clear queue on error
+                batchQueue.innerHTML = '';
                 e.target.value = "";
                 return;
             }
