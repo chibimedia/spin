@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vinyl Gen Pro | Spin Edition</title>
     
-    <!-- Favicon (inline SVG vinyl record) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23111' stroke='%2300e5ff' stroke-width='4'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='%2300e5ff' stroke-width='2' stroke-dasharray='4 4'/%3E%3Ccircle cx='50' cy='50' r='10' fill='%2300e5ff'/%3E%3C/svg%3E">
     
-    <!-- Pre‑built Tailwind (no JIT) for Cloudflare compatibility -->
     <link rel="stylesheet" href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css">
     <script src="coi-serviceworker.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
@@ -89,9 +87,12 @@
             cursor: crosshair; 
             border: 1px solid rgba(255,255,255,0.1);
             border-radius: 4px;
+            max-width: 90vw;
+            max-height: 70vh;
+            width: auto !important;
+            height: auto !important;
         }
 
-        /* Fixed logo */
         .fixed-logo {
             position: fixed;
             top: 12px;
@@ -105,7 +106,6 @@
             pointer-events: none;
         }
 
-        /* Pill Tabs */
         .tab-bar {
             display: flex;
             gap: 12px;
@@ -133,7 +133,6 @@
             box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
         }
 
-        /* Timeline */
         #timelineContainer {
             position: relative;
             width: 100%;
@@ -197,7 +196,6 @@
             pointer-events: none;
         }
 
-        /* LED Meter */
         .led-meter {
             display: flex;
             gap: 3px;
@@ -216,20 +214,17 @@
         .led-segment.lit.orange { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; }
         .led-segment.lit.red    { background: #e74c3c; box-shadow: 0 0 8px #e74c3c; }
 
-        /* Pioneer vertical fader */
         .fader-rail {
-            position: absolute;
-            right: 4px;
-            top: 10%;
-            bottom: 10%;
             width: 16px;
+            height: 70vh;
             background: #0f172a;
             border-radius: 2px;
             border: 1px solid #1e293b;
             cursor: pointer;
             touch-action: none;
             box-shadow: inset 0 0 8px black;
-            z-index: 10;
+            flex-shrink: 0;
+            position: relative;
         }
         .fader-slot {
             position: absolute;
@@ -306,10 +301,8 @@
 </head>
 <body class="h-screen flex items-center justify-center">
 
-    <!-- Fixed logo top‑left -->
     <div class="fixed-logo">VINYL<span class="text-cyan-400">GEN</span></div>
 
-    <!-- Help Overlay -->
     <div id="helpOverlay" class="hidden" onclick="toggleHelp()">
         <div class="bg-zinc-900 border border-white/10 p-8 rounded-2xl max-w-sm w-full shadow-2xl" onclick="event.stopPropagation()">
             <h2 class="text-xl font-black mb-4 text-cyan-400 uppercase tracking-tighter">Shortcuts</h2>
@@ -324,7 +317,6 @@
         </div>
     </div>
 
-    <!-- Touch Banner -->
     <div id="touchBanner" class="fixed top-0 inset-x-0 bg-cyan-900 text-cyan-100 text-[10px] py-2 px-4 z-[60] flex justify-between items-center hidden border-b border-cyan-700">
         <span class="font-bold uppercase tracking-widest">Mobile experience is limited. Touch dragging is active.</span>
         <button onclick="this.parentElement.remove()" class="px-2 font-bold">✕</button>
@@ -335,8 +327,7 @@
         <aside class="lg:col-span-3 h-screen flex flex-col border-r">
             
             <div class="sidebar-zone p-5 border-b border-white/5">
-                <header class="mb-5 flex justify-between items-center">
-                    <!-- Reset only (logo moved to fixed) -->
+                <header class="mb-5 flex justify-end items-center">
                     <button onclick="globalReset()" class="text-[9px] uppercase font-bold text-red-500 border border-red-500/30 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition">Reset</button>
                 </header>
 
@@ -364,7 +355,6 @@
                 </div>
             </div>
 
-            <!-- Pill Tab Bar -->
             <div class="tab-bar">
                 <button onclick="switchTab('format')" id="tab-format-btn" class="tab-pill active">Format</button>
                 <button onclick="switchTab('vinyl')" id="tab-vinyl-btn" class="tab-pill">Vinyl</button>
@@ -382,10 +372,6 @@
                             <button data-ratio="16:9" class="btn-preset">16:9 Wide</button>
                             <button data-ratio="spotify" class="btn-preset">Spotify</button>
                         </div>
-                    </div>
-                    <div class="panel-dominant flex items-center justify-between">
-                        <span class="text-[10px] uppercase font-bold text-cyan-400">Express Mode (Static)</span>
-                        <input type="checkbox" id="expressMode" class="w-4 h-4">
                     </div>
                 </div>
 
@@ -424,8 +410,8 @@
                             <input type="range" id="holeSize" min="1" max="15" value="5" class="w-full">
                         </div>
                         <div class="flex items-center justify-between">
-                            <span class="text-[9px] font-bold uppercase text-slate-500">Base Color</span>
-                            <input type="color" id="vinylFillColor" value="#1a1a1a" class="bg-transparent border-none w-6 h-6 cursor-pointer">
+                            <span class="text-[9px] font-bold uppercase text-slate-500">Vinyl Color</span>
+                            <input type="color" id="vinylFillColor" value="#ffffff" class="bg-transparent border-none w-8 h-8 cursor-pointer rounded">
                         </div>
                     </div>
                 </div>
@@ -459,7 +445,6 @@
                 </div>
             </div>
 
-            <!-- Split Export Button -->
             <div class="pinned-footer">
                 <div class="export-split">
                     <button id="exportBtn" disabled class="export-main">Export Video</button>
@@ -478,11 +463,12 @@
 
         <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative">
             
-            <div class="relative max-h-[70vh] flex items-center justify-center">
-                <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-full rounded-sm shadow-[0_0_100px_rgba(0,0,0,0.5)]"></canvas>
-                
-                <!-- Pioneer fader (right of canvas) -->
-                <div class="fader-rail" id="pioneerFader">
+            <div class="flex items-start justify-center gap-2 max-w-full">
+                <div class="relative">
+                    <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-[70vh] rounded-sm shadow-[0_0_100px_rgba(0,0,0,0.5)]"></canvas>
+                </div>
+                <!-- Pioneer fader outside canvas -->
+                <div class="fader-rail" id="pioneerFader" style="height: 70vh;">
                     <div class="fader-slot"></div>
                     <div class="fader-knob" id="faderKnob"></div>
                 </div>
@@ -543,8 +529,8 @@
             width: 720, height: 720, ratio: '1:1', res: 1080, activeTab: 'format',
             vinylScale: 0.7, vinylX: 0.5, vinylY: 0.5,
             revRotation: false, speedOffset: -125,
-            bgColor: '#000000', bgOpacity: 1.0, vinylOpacity: 1.0, expressMode: false,
-            vinylFit: false, bgFit: false, vinylFillColor: '#1a1a1a',
+            bgColor: '#000000', bgOpacity: 1.0, vinylOpacity: 1.0,
+            vinylFit: false, bgFit: false, vinylFillColor: '#ffffff',
             showVinylFill: true, showHole: false, showCenterDot: false, holeSize: 0.05,
             showWaveform: false, audioVolume: 100,
             trimStart: 0, trimEnd: 0,
@@ -592,7 +578,6 @@
         function syncUI() {
             document.getElementById('vinylSize').value = state.vinylScale * 100;
             document.getElementById('speedOffset').value = state.speedOffset;
-            document.getElementById('expressMode').checked = state.expressMode;
             document.getElementById('showCenterDot').checked = state.showCenterDot;
             document.getElementById('showHole').checked = state.showHole;
             document.getElementById('holeSize').value = state.holeSize * 100;
@@ -745,7 +730,6 @@
             } catch (e) { console.error("FFmpeg load error", e); }
         }
 
-        // --- Timeline ---
         const timeline = document.getElementById('timelineContainer');
         const hStart = document.getElementById('handleStart');
         const hEnd = document.getElementById('handleEnd');
@@ -843,6 +827,7 @@
             const adjustedX = mouseX - dragOffset;
             const x = Math.max(0, Math.min(1, adjustedX / r.width));
             const target = x * state.audioBuffer.duration;
+
             if (activeHandle === 'start') {
                 state.trimStart = Math.min(target, state.trimEnd - 3);
                 if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
@@ -863,12 +848,25 @@
                     state.startTime = state.audioCtx.currentTime - state.pausedAt;
                 }
             }
+
+            // Spotify Canvas trim cap (8 seconds)
+            if (state.ratio === 'spotify') {
+                const maxTrim = Math.min(state.audioBuffer.duration, 8);
+                if (activeHandle === 'start') {
+                    state.trimEnd = Math.min(state.trimStart + maxTrim, state.audioBuffer.duration);
+                } else if (activeHandle === 'end') {
+                    state.trimStart = Math.max(state.trimEnd - maxTrim, 0);
+                }
+                if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
+                if (state.pausedAt > state.trimEnd) state.pausedAt = state.trimEnd;
+            }
+
             updateTimelineUI();
             drawFrame(state.pausedAt);
             document.getElementById('timeCur').textContent = formatTime(state.pausedAt);
         }
 
-        // --- Pioneer Fader ---
+        // Pioneer Fader
         const pioneerFader = document.getElementById('pioneerFader');
         const faderKnobEl = document.getElementById('faderKnob');
         let faderDragging = false;
@@ -915,7 +913,7 @@
             window.removeEventListener('touchend', stopFaderDrag);
         }
 
-        // --- Render Engine ---
+        // Render Engine
         function drawFrame(time) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = state.bgColor;
@@ -966,7 +964,7 @@
             }
 
             // Vinyl compositing
-            const angle = state.expressMode ? 0 : (time * (180 + state.speedOffset) * (state.revRotation ? -1 : 1)) % 360;
+            const angle = (state.ratio === 'spotify') ? 0 : (time * (180 + state.speedOffset) * (state.revRotation ? -1 : 1)) % 360;
             const vDim = Math.min(canvas.width, canvas.height) * state.vinylScale;
             offscreenCanvas.width = vDim;
             offscreenCanvas.height = vDim;
@@ -976,6 +974,8 @@
             offCtx.beginPath();
             offCtx.arc(0, 0, vDim/2, 0, Math.PI*2);
             offCtx.clip();
+
+            offCtx.globalAlpha = state.vinylOpacity;
 
             if (state.showVinylFill) {
                 offCtx.fillStyle = state.vinylFillColor;
@@ -987,17 +987,17 @@
                 if (va.tagName === 'VIDEO' && va.readyState >= 2) va.currentTime = time % va.duration;
                 const assetW = va.videoWidth || va.width, assetH = va.videoHeight || va.height;
                 const scale = state.vinylFit ? Math.min(vDim/assetW, vDim/assetH) : Math.max(vDim/assetW, vDim/assetH);
-                offCtx.globalAlpha = state.vinylOpacity;
                 offCtx.drawImage(va, -(assetW*scale)/2, -(assetH*scale)/2, assetW*scale, assetH*scale);
             }
 
             if (state.showCenterDot) {
-                offCtx.globalAlpha = 1.0;
                 offCtx.beginPath();
                 offCtx.arc(0, 0, vDim * state.holeSize, 0, Math.PI*2);
                 offCtx.fillStyle = '#000';
                 offCtx.fill();
             }
+
+            offCtx.globalAlpha = 1.0;
 
             if (state.showHole) {
                 offCtx.globalCompositeOperation = 'destination-out';
@@ -1026,7 +1026,7 @@
             });
         }
 
-        // --- Drag (canvas) ---
+        // Canvas drag
         function handleStart(e) {
             const r = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
@@ -1063,7 +1063,7 @@
         window.addEventListener('mouseup', () => { if(state.draggedItem) saveToStorage(); state.draggedItem = null; });
         window.addEventListener('touchend', () => { if(state.draggedItem) saveToStorage(); state.draggedItem = null; });
 
-        // --- Audio ---
+        // Audio
         async function handleAudioFile(file) {
             state.audioFile = file;
             state.currentAudioName = file.name.replace(/\.[^/.]+$/, "");
@@ -1085,14 +1085,29 @@
             drawFrame(0);
         }
 
-        function togglePlay() {
+        async function togglePlay() {
             if (state.isPlaying) {
-                state.sourceNode.stop();
+                try { state.sourceNode.stop(); } catch (e) {}
                 state.pausedAt = state.audioCtx.currentTime - state.startTime;
                 state.isPlaying = false;
                 toggleIcons(false);
-            } else {
-                state.audioCtx.resume();
+                return;
+            }
+
+            if (!state.audioCtx || state.audioCtx.state === 'closed') {
+                alert('Audio system stopped. Please reload the song.');
+                return;
+            }
+
+            try {
+                if (state.audioCtx.state === 'suspended') {
+                    await state.audioCtx.resume();
+                }
+                if (state.audioCtx.state !== 'running') {
+                    alert('Cannot start audio. Try reloading the song.');
+                    return;
+                }
+
                 state.sourceNode = state.audioCtx.createBufferSource();
                 state.sourceNode.buffer = state.audioBuffer;
                 state.sourceNode.connect(state.gainNode);
@@ -1103,6 +1118,9 @@
                 state.isPlaying = true;
                 toggleIcons(true);
                 requestAnimationFrame(playbackLoop);
+            } catch (err) {
+                console.error('Playback error:', err);
+                alert('Playback failed. Reload the page or load the song again.');
             }
         }
 
@@ -1126,7 +1144,7 @@
             requestAnimationFrame(playbackLoop);
         }
 
-        // --- Export ---
+        // Export
         async function runExport() {
             if (state.batchFiles.length > 3) {
                 document.getElementById('batchError').classList.remove('hidden');
@@ -1230,7 +1248,6 @@
                 setTimeout(() => { if (!state.isExporting) area.classList.add('hidden'); }, 3000);
                 state.shouldCancel = false;
 
-                // Resume playback automatically
                 if (wasPlaying) {
                     setTimeout(() => {
                         if (state.audioBuffer && !state.isPlaying) togglePlay();
@@ -1239,7 +1256,6 @@
             }
         }
 
-        // --- Asset Loading ---
         async function loadAsset(file) {
             const url = URL.createObjectURL(file);
             return new Promise((resolve, reject) => {
@@ -1260,13 +1276,28 @@
             });
         }
 
-        // --- Event Bindings ---
-        document.getElementById('expressMode').onchange = (e) => { state.expressMode = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
+        // Event Bindings
         document.getElementById('vinylSize').oninput = (e) => { state.vinylScale = e.target.value/100; document.getElementById('sizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('speedOffset').oninput = (e) => { state.speedOffset = parseInt(e.target.value); document.getElementById('speedVal').textContent = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('vinylOpacity').oninput = (e) => { state.vinylOpacity = e.target.value/100; document.getElementById('vinylOpacityVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('showWaveform').onchange = (e) => { state.showWaveform = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
-        document.getElementById('ratioPresets').onclick = (e) => { const b = e.target.closest('button'); if(b) { state.ratio = b.dataset.ratio; syncUI(); saveToStorage(); } };
+        document.getElementById('ratioPresets').onclick = (e) => {
+            const b = e.target.closest('button');
+            if (b) {
+                state.ratio = b.dataset.ratio;
+                if (state.ratio === 'spotify' && state.audioBuffer) {
+                    const maxTrim = Math.min(state.audioBuffer.duration, 8);
+                    state.trimStart = 0;
+                    state.trimEnd = maxTrim;
+                    state.pausedAt = 0;
+                } else if (state.audioBuffer) {
+                    state.trimStart = 0;
+                    state.trimEnd = state.audioBuffer.duration;
+                }
+                syncUI();
+                saveToStorage();
+            }
+        };
         document.getElementById('vinylInput').onchange = async (e) => { state.vinylAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); saveToStorage(); };
         document.getElementById('bgInput').onchange = async (e) => { state.bgAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); saveToStorage(); };
         document.getElementById('audioInput').onchange = (e) => {
@@ -1322,7 +1353,6 @@
         });
 
         loadFromStorage();
-        // preloadFFmpeg();   // removed to save idle memory
         updateStaticFlag();
         drawFrame(0);
     </script>
