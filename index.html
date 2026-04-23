@@ -30,6 +30,7 @@
             scrollbar-gutter: stable; 
             font-family: ui-sans-serif, system-ui, sans-serif;
             overflow: hidden;
+            height: 100vh;
         }
 
         aside { background-color: var(--bg-sidebar); border-color: var(--border-subtle); }
@@ -67,11 +68,46 @@
 
         canvas { background: var(--bg-canvas); cursor: crosshair; }
 
-        .tab-btn { 
-            @apply flex-1 py-3 text-[10px] uppercase font-black tracking-widest transition-all border-b-2 border-transparent;
-            color: var(--text-muted);
+        /* Pill Tabs */
+        .tab-pill { 
+            @apply flex-1 py-2 rounded-full text-[10px] uppercase font-black tracking-widest transition-all;
+            background: #1a1a1a;
+            color: #666;
+            border: 1px solid #2a2a2a;
         }
-        .tab-btn.active { color: var(--accent); border-color: var(--accent); background: rgba(0, 229, 255, 0.05); }
+        .tab-pill.active { 
+            background: var(--accent);
+            color: #000;
+            border-color: var(--accent);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+        }
+
+        /* Timeline Components */
+        #timelineContainer {
+            @apply relative w-full h-10 bg-zinc-900 rounded-md mt-6 overflow-visible select-none;
+            touch-action: none;
+        }
+        #waveformCanvas {
+            @apply absolute inset-0 w-full h-full opacity-30 pointer-events-none;
+        }
+        #trimRange {
+            @apply absolute h-full bg-cyan-400/20 border-l border-r border-cyan-400 z-10;
+        }
+        .trim-handle {
+            @apply absolute top-[-4px] w-3 h-[48px] bg-cyan-400 rounded-sm cursor-ew-resize z-30 shadow-lg;
+        }
+        #playhead {
+            @apply absolute top-0 w-0.5 h-full bg-white z-20 pointer-events-none;
+        }
+
+        /* Volume Meter */
+        #volumeMeter {
+            @apply absolute right-[-24px] top-0 bottom-0 w-2 bg-zinc-900 rounded-full overflow-hidden border border-white/5 shadow-[0_0_10px_rgba(0,229,255,0.1)];
+        }
+        #volumeFill {
+            @apply absolute bottom-0 w-full bg-cyan-400 shadow-[0_0_15px_#00e5ff] transition-all duration-75;
+            height: 0%;
+        }
 
         .toggle-label-sm { @apply text-[9px] uppercase font-bold tracking-tighter; color: var(--text-muted); }
         .reset-section-btn { @apply text-xs opacity-30 hover:opacity-100 transition cursor-pointer text-cyan-400; }
@@ -80,22 +116,7 @@
         .sidebar-scrollable { flex: 1; overflow-y: auto; padding: 1.25rem; }
         .pinned-footer { border-top: 1px solid var(--border-subtle); padding: 1.25rem; background: var(--bg-sidebar); }
 
-        #shortcutOverlay {
-            @apply fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden;
-        }
-
-        .spinner {
-            border: 2px solid rgba(255,255,255,0.1);
-            border-left-color: var(--accent);
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-            display: inline-block;
-            vertical-align: middle;
-            margin-right: 8px;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        #helpOverlay { @apply fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center hidden; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -104,17 +125,25 @@
 </head>
 <body class="h-screen flex items-center justify-center">
 
-    <div id="shortcutOverlay" onclick="toggleShortcuts()">
+    <!-- Help Overlay -->
+    <div id="helpOverlay" onclick="toggleHelp()">
         <div class="bg-zinc-900 border border-white/10 p-8 rounded-2xl max-w-sm w-full shadow-2xl" onclick="event.stopPropagation()">
-            <h2 class="text-xl font-black mb-4 text-cyan-400 uppercase tracking-tighter">Keyboard Shortcuts</h2>
+            <h2 class="text-xl font-black mb-4 text-cyan-400 uppercase tracking-tighter">Shortcuts</h2>
             <div class="space-y-3 font-mono text-sm">
-                <div class="flex justify-between"><span>Space</span><span class="text-white/50">Play/Pause</span></div>
-                <div class="flex justify-between"><span>← / →</span><span class="text-white/50">Seek ±2s</span></div>
-                <div class="flex justify-between"><span>↑ / ↓</span><span class="text-white/50">Speed ±10</span></div>
-                <div class="flex justify-between"><span>?</span><span class="text-white/50">Toggle Help</span></div>
+                <div class="flex justify-between"><span>Space</span><span class="text-white/40">Play/Pause</span></div>
+                <div class="flex justify-between"><span>← / →</span><span class="text-white/40">Seek ±2s</span></div>
+                <div class="flex justify-between"><span>↑ / ↓</span><span class="text-white/40">Speed ±10</span></div>
+                <div class="flex justify-between"><span>?</span><span class="text-white/40">This Help</span></div>
+                <div class="flex justify-between"><span>Esc</span><span class="text-white/40">Close</span></div>
             </div>
-            <button onclick="toggleShortcuts()" class="w-full mt-6 py-2 bg-white/5 hover:bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest transition">Close</button>
+            <button onclick="toggleHelp()" class="w-full mt-6 py-2 bg-white/5 hover:bg-white/10 rounded text-[10px] font-bold uppercase tracking-widest transition">Dismiss</button>
         </div>
+    </div>
+
+    <!-- Touch Banner -->
+    <div id="touchBanner" class="fixed top-0 inset-x-0 bg-cyan-900 text-cyan-100 text-[10px] py-2 px-4 z-[60] flex justify-between items-center hidden border-b border-cyan-700">
+        <span class="font-bold uppercase tracking-widest">Mobile experience is limited. Touch dragging is active.</span>
+        <button onclick="this.parentElement.remove()" class="px-2 font-bold">✕</button>
     </div>
 
     <div class="w-full h-full grid grid-cols-1 lg:grid-cols-12 gap-0 overflow-hidden">
@@ -147,16 +176,17 @@
                     <div>
                         <span class="text-[10px] uppercase font-bold text-slate-500 block mb-1">Audio (select multiple for batch)</span>
                         <input type="file" id="audioInput" multiple accept="audio/*" class="w-full text-[10px] p-1.5 panel-tertiary border-dashed border-cyan-900/50">
-                        <p class="text-[8px] text-slate-600 mt-1 uppercase font-bold">Free batch limit: 3 files.</p>
                         <div id="batchQueue" class="mt-2 space-y-1 max-h-20 overflow-y-auto text-[9px] font-mono text-slate-500"></div>
+                        <div id="batchError" class="hidden text-[8px] text-red-400 font-bold uppercase mt-1">Free batch limit is 3 files.</div>
                     </div>
                 </div>
             </div>
 
-            <div class="sidebar-zone flex border-b border-white/5">
-                <button onclick="switchTab('format')" id="tab-format-btn" class="tab-btn active">Format</button>
-                <button onclick="switchTab('vinyl')" id="tab-vinyl-btn" class="tab-btn">Vinyl</button>
-                <button onclick="switchTab('scene')" id="tab-scene-btn" class="tab-btn">Scene</button>
+            <!-- Pill Tab Bar -->
+            <div class="sidebar-zone flex p-2 gap-1 bg-[#0a0a0a] border-b border-white/5">
+                <button onclick="switchTab('format')" id="tab-format-btn" class="tab-pill active">Format</button>
+                <button onclick="switchTab('vinyl')" id="tab-vinyl-btn" class="tab-pill">Vinyl</button>
+                <button onclick="switchTab('scene')" id="tab-scene-btn" class="tab-pill">Scene</button>
             </div>
 
             <div class="sidebar-scrollable">
@@ -178,21 +208,6 @@
                             <option value="1080">1080p Full HD</option>
                         </select>
                     </div>
-
-                    <div class="space-y-4">
-                        <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Trim Control (s)</label>
-                        <div class="panel-tertiary space-y-3">
-                            <div>
-                                <div class="flex justify-between text-[9px] mb-1 font-mono uppercase"><span>Start</span><span id="trimStartVal">0.0</span></div>
-                                <input type="range" id="trimStart" min="0" max="60" step="0.1" value="0" class="w-full">
-                            </div>
-                            <div>
-                                <div class="flex justify-between text-[9px] mb-1 font-mono uppercase"><span>End</span><span id="trimEndVal">0.0</span></div>
-                                <input type="range" id="trimEnd" min="3" max="60" step="0.1" value="60" class="w-full">
-                            </div>
-                        </div>
-                    </div>
-
                     <div class="panel-dominant flex items-center justify-between">
                         <span class="text-[10px] uppercase font-bold text-cyan-400">Express Mode (Static)</span>
                         <input type="checkbox" id="expressMode" class="w-4 h-4">
@@ -210,9 +225,17 @@
                             <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Scale</span><span id="sizeVal">70%</span></div>
                             <input type="range" id="vinylSize" min="10" max="150" value="70" class="w-full">
                         </div>
-                        <div id="spinControls">
+                        <div>
                             <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Speed Offset</span><span id="speedVal">-125</span></div>
                             <input type="range" id="speedOffset" min="-180" max="180" value="-125" class="w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Vinyl Opacity</span><span id="vinylOpacityVal">100%</span></div>
+                            <input type="range" id="vinylOpacity" min="0" max="100" value="100" class="w-full">
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Audio Volume</span><span id="volVal">100%</span></div>
+                            <input type="range" id="audioVolume" min="0" max="200" value="100" class="w-full">
                         </div>
                     </div>
 
@@ -239,14 +262,8 @@
                 <div id="tab-scene" class="tab-content hidden space-y-6">
                     <div class="space-y-4">
                         <div class="flex justify-between items-center">
-                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Backdrop & Audio</span>
+                            <span class="text-[10px] font-bold uppercase tracking-widest text-slate-500">Backdrop</span>
                             <span class="reset-section-btn" onclick="resetSection('scene')">↺</span>
-                        </div>
-                        <div class="panel-dominant space-y-4">
-                            <div>
-                                <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Audio Volume</span><span id="volVal">100%</span></div>
-                                <input type="range" id="audioVolume" min="0" max="200" value="100" class="w-full">
-                            </div>
                         </div>
                         <div class="grid grid-cols-2 gap-2">
                             <div class="panel-tertiary flex items-center justify-between"><span class="toggle-label-sm">Fit Bg</span><input type="checkbox" id="bgFitToggle" class="w-3 h-3"></div>
@@ -264,7 +281,7 @@
                         </div>
                     </div>
 
-                    <div id="textSection" class="hidden space-y-4 pt-4 border-t border-white/5">
+                    <div id="textSection" class="space-y-4 pt-4 border-t border-white/5">
                         <label class="text-[10px] font-bold uppercase tracking-widest text-slate-500 block">Text Overlays</label>
                         <div id="textOverlayControls" class="space-y-3"></div>
                     </div>
@@ -276,43 +293,47 @@
                     Export Video
                 </button>
                 <div id="exportProgress" class="hidden mt-4 space-y-2">
-                    <div class="flex justify-between text-[10px] font-bold uppercase">
-                        <span id="statusText">
-                            <span class="spinner" id="ffmpegLoader" style="display:none"></span>
-                            <span id="statusLabel">Rendering...</span>
-                        </span>
-                        <span id="percentText">0%</span>
-                    </div>
+                    <div class="flex justify-between text-[10px] font-bold uppercase"><span id="statusText">Rendering...</span><span id="percentText">0%</span></div>
                     <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
                         <div id="progressBar" class="h-full w-0 bg-cyan-400 transition-all duration-300"></div>
                     </div>
+                    <div id="exportErrorMessage" class="hidden text-[9px] text-red-500 font-bold uppercase pt-1"></div>
                     <button id="cancelBtn" class="w-full text-[10px] font-bold text-red-400 uppercase pt-1 hover:text-red-300">Stop Export</button>
                 </div>
             </div>
         </aside>
 
         <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-black relative">
+            
             <div class="relative max-h-[70vh] flex items-center justify-center">
                 <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-full rounded-sm shadow-[0_0_100px_rgba(0,0,0,0.5)]"></canvas>
+                <div id="volumeMeter">
+                    <div id="volumeFill"></div>
+                </div>
             </div>
 
-            <div class="w-full max-w-2xl mt-10">
-                <div class="bg-[#111]/80 border border-white/10 backdrop-blur-xl rounded-full px-6 py-3 flex items-center gap-6 shadow-2xl">
-                    <button id="playPauseBtn" disabled class="w-11 h-11 flex-shrink-0 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition disabled:opacity-20">
-                        <svg id="playIcon" class="w-5 h-5 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-                        <svg id="pauseIcon" class="hidden w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+            <div class="w-full max-w-2xl">
+                <div id="timelineContainer">
+                    <canvas id="waveformCanvas"></canvas>
+                    <div id="trimRange"></div>
+                    <div id="handleStart" class="trim-handle"></div>
+                    <div id="handleEnd" class="trim-handle"></div>
+                    <div id="playhead"></div>
+                </div>
+                <div class="flex justify-between items-center px-1 mt-2">
+                    <span id="timeCur" class="text-xs font-mono font-bold text-cyan-400">00:00</span>
+                    <span id="trimInfo" class="text-[9px] font-mono text-slate-500 uppercase font-black">Trim: 0.0s selected</span>
+                    <span id="timeTot" class="text-[9px] font-mono text-slate-500 uppercase tracking-tighter">00:00</span>
+                </div>
+
+                <div class="flex justify-center mt-6">
+                    <button id="playPauseBtn" disabled class="w-14 h-14 flex items-center justify-center bg-white text-black rounded-full hover:scale-105 transition disabled:opacity-20 shadow-xl">
+                        <svg id="playIcon" class="w-6 h-6 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        <svg id="pauseIcon" class="hidden w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                     </button>
-                    
-                    <div class="flex-1 flex flex-col">
-                        <input type="range" id="seekBar" value="0" step="0.01" class="w-full h-1.5 mb-1.5">
-                        <div class="flex justify-between items-center px-1">
-                            <span id="timeCur" class="text-xs font-mono font-bold text-cyan-400">00:00</span>
-                            <span id="timeTot" class="text-[9px] font-mono text-slate-500 uppercase tracking-tighter">00:00 Total</span>
-                        </div>
-                    </div>
                 </div>
                 <p class="text-[9px] text-center uppercase tracking-widest font-bold text-slate-600 mt-5">
-                    💡 Press <span class="text-cyan-400">?</span> for shortcuts. Drag elements to reposition.
+                    💡 Drag vinyl or text on canvas to reposition.
                 </p>
             </div>
         </main>
@@ -327,6 +348,7 @@
 
         const FONT_MAP = { 'Sans': 'Arial, sans-serif', 'Serif': 'Georgia, serif', 'Mono': '"Courier New", monospace', 'Bold': 'Impact, sans-serif' };
 
+        // --- State (all original properties plus new ones) ---
         let state = {
             width: 720, height: 720, ratio: '1:1', res: 720, activeTab: 'format',
             vinylScale: 0.7, vinylX: 0.5, vinylY: 0.5,
@@ -335,7 +357,7 @@
             vinylFit: false, bgFit: false, vinylFillColor: '#ffffff',
             showVinylFill: true, showHole: false, showCenterDot: false, holeSize: 0.05,
             showWaveform: false, audioVolume: 100,
-            trimStart: 0, trimEnd: 0,
+            trimStart: 0, trimEnd: 0,  // in seconds
 
             textElements: [
                 { id: 'tagline', text: '', show: false, fontSize: 18, color: '#a3a3a3', opacity: 1, shadow: true, x: 0.5, y: 0.92, fontFamily: 'Sans' },
@@ -346,22 +368,31 @@
             audioBuffer: null, audioCtx: null, sourceNode: null, gainNode: null, analyser: null, dataArray: null,
             startTime: 0, pausedAt: 0, isPlaying: false,
             vinylAsset: null, bgAsset: null, isStatic: true,
-            ffmpeg: null, isExporting: false, shouldCancel: false,
-            vx: 360, vy: 360, vRadius: 252, draggedItem: null,
+            ffmpeg: null, isFFmpegReady: false, isExporting: false, shouldCancel: false,
             batchFiles: [], currentAudioName: "vinyl_gen"
         };
 
         const INITIAL_STATE = JSON.parse(JSON.stringify(state));
 
+        // --- Helpers ---
+        function formatTime(s) { 
+            if (isNaN(s)) s = 0;
+            const m = Math.floor(s / 60), sc = Math.floor(s % 60); 
+            return `${m.toString().padStart(2, '0')}:${sc.toString().padStart(2, '0')}`; 
+        }
+
+        function toggleHelp() { document.getElementById('helpOverlay').classList.toggle('hidden'); }
+
+        // --- Storage ---
         function saveToStorage() {
             const data = {...state};
             const keysToRemove = ['audioBuffer', 'audioCtx', 'sourceNode', 'gainNode', 'analyser', 'dataArray', 'vinylAsset', 'bgAsset', 'ffmpeg', 'batchFiles'];
             keysToRemove.forEach(k => delete data[k]);
-            localStorage.setItem('vinyl_gen_v4_settings', JSON.stringify(data));
+            localStorage.setItem('vinyl_gen_v7_settings', JSON.stringify(data));
         }
 
         function loadFromStorage() {
-            const saved = localStorage.getItem('vinyl_gen_v4_settings');
+            const saved = localStorage.getItem('vinyl_gen_v7_settings');
             if (saved) {
                 const parsed = JSON.parse(saved);
                 state = {...state, ...parsed};
@@ -370,6 +401,7 @@
             switchTab(state.activeTab);
         }
 
+        // --- UI Sync ---
         function syncUI() {
             document.getElementById('vinylSize').value = state.vinylScale * 100;
             document.getElementById('speedOffset').value = state.speedOffset;
@@ -380,6 +412,7 @@
             document.getElementById('vinylFillColor').value = state.vinylFillColor;
             document.getElementById('bgColor').value = state.bgColor;
             document.getElementById('bgOpacity').value = state.bgOpacity * 100;
+            document.getElementById('vinylOpacity').value = state.vinylOpacity * 100;
             document.getElementById('audioVolume').value = state.audioVolume;
             document.getElementById('vinylFitToggle').checked = state.vinylFit;
             document.getElementById('bgFitToggle').checked = state.bgFit;
@@ -387,16 +420,13 @@
             document.getElementById('revToggle').checked = state.revRotation;
             document.getElementById('showWaveform').checked = state.showWaveform;
             document.getElementById('exportRes').value = state.res;
-            document.getElementById('trimStart').value = state.trimStart;
-            document.getElementById('trimEnd').value = state.trimEnd;
             
             document.getElementById('sizeVal').textContent = Math.round(state.vinylScale*100)+'%';
             document.getElementById('speedVal').textContent = state.speedOffset;
             document.getElementById('holeSizeVal').textContent = Math.round(state.holeSize*100)+'%';
             document.getElementById('opacityVal').textContent = Math.round(state.bgOpacity*100)+'%';
+            document.getElementById('vinylOpacityVal').textContent = Math.round(state.vinylOpacity*100)+'%';
             document.getElementById('volVal').textContent = state.audioVolume + '%';
-            document.getElementById('trimStartVal').textContent = state.trimStart.toFixed(1);
-            document.getElementById('trimEndVal').textContent = state.trimEnd.toFixed(1);
 
             document.querySelectorAll('#ratioPresets button').forEach(b => {
                 b.classList.toggle('active', b.dataset.ratio === state.ratio);
@@ -404,20 +434,16 @@
 
             applyResolution(state.res);
             initTextControls();
+            updateTimelineUI();
         }
 
         function switchTab(tab) {
             state.activeTab = tab;
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-pill').forEach(b => b.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.add('hidden'));
             document.getElementById(`tab-${tab}-btn`).classList.add('active');
             document.getElementById(`tab-${tab}`).classList.remove('hidden');
             saveToStorage();
-        }
-
-        function toggleShortcuts() {
-            const overlay = document.getElementById('shortcutOverlay');
-            overlay.classList.toggle('hidden');
         }
 
         function globalReset() {
@@ -432,9 +458,9 @@
         function resetSection(section) {
             const defaults = JSON.parse(JSON.stringify(INITIAL_STATE));
             if (section === 'vinyl') {
-                ['vinylScale', 'vinylX', 'vinylY', 'revRotation', 'speedOffset', 'vinylFit', 'showVinylFill', 'showHole', 'showCenterDot', 'holeSize', 'vinylFillColor'].forEach(k => state[k] = defaults[k]);
+                ['vinylScale', 'vinylX', 'vinylY', 'revRotation', 'speedOffset', 'vinylFit', 'showVinylFill', 'showHole', 'showCenterDot', 'holeSize', 'vinylFillColor', 'vinylOpacity', 'audioVolume'].forEach(k => state[k] = defaults[k]);
             } else if (section === 'scene') {
-                ['bgFit', 'showWaveform', 'bgColor', 'bgOpacity', 'audioVolume'].forEach(k => state[k] = defaults[k]);
+                ['bgFit', 'showWaveform', 'bgColor', 'bgOpacity'].forEach(k => state[k] = defaults[k]);
                 state.textElements.forEach((el, i) => {
                     el.x = defaults.textElements[i].x;
                     el.y = defaults.textElements[i].y;
@@ -445,264 +471,33 @@
             syncUI(); drawFrame(state.pausedAt); saveToStorage();
         }
 
-        // --- RENDER ENGINE ---
-        function drawFrame(time) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = state.bgColor;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            if (state.bgAsset) {
-                ctx.save();
-                ctx.globalAlpha = state.bgOpacity;
-                const asset = state.bgAsset;
-                if (asset.tagName === 'VIDEO' && asset.readyState >= 2) asset.currentTime = time % asset.duration;
-                const assetW = asset.videoWidth || asset.width, assetH = asset.videoHeight || asset.height;
-                const scale = state.bgFit ? Math.min(canvas.width / assetW, canvas.height / assetH) : Math.max(canvas.width / assetW, canvas.height / assetH);
-                ctx.drawImage(asset, (canvas.width - assetW*scale)/2, (canvas.height - assetH*scale)/2, assetW*scale, assetH*scale);
-                ctx.restore();
-            }
-
-            // Waveform update check (Feature 10)
-            if (state.showWaveform && state.analyser && state.isPlaying) {
-                state.analyser.getByteFrequencyData(state.dataArray);
-                ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
-                const barWidth = (canvas.width / state.dataArray.length) * 2.5;
-                let x = 0;
-                for(let i = 0; i < state.dataArray.length; i++) {
-                    const barHeight = (state.dataArray[i] / 255) * (canvas.height * 0.15);
-                    ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-                    x += barWidth + 1;
-                }
-            }
-
-            const angle = state.expressMode ? 0 : (time * (180 + state.speedOffset) * (state.revRotation ? -1 : 1)) % 360;
-            const vinylDim = Math.min(canvas.width, canvas.height) * state.vinylScale;
-            state.vx = state.vinylX * canvas.width;
-            state.vy = state.vinylY * canvas.height;
-            state.vRadius = vinylDim / 2;
-
-            offscreenCanvas.width = state.expressMode ? canvas.width : vinylDim;
-            offscreenCanvas.height = state.expressMode ? canvas.height : vinylDim;
-            offCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-            
-            offCtx.save();
-            if (!state.expressMode) {
-                offCtx.translate(vinylDim / 2, vinylDim / 2);
-                offCtx.beginPath(); offCtx.arc(0, 0, vinylDim / 2, 0, Math.PI * 2); offCtx.clip();
-            }
-
-            if (state.showVinylFill) {
-                offCtx.fillStyle = state.vinylFillColor;
-                offCtx.fillRect(state.expressMode?0:-vinylDim/2, state.expressMode?0:-vinylDim/2, offscreenCanvas.width, offscreenCanvas.height);
-            }
-
-            if (state.vinylAsset) {
-                const va = state.vinylAsset;
-                if (va.tagName === 'VIDEO' && va.readyState >= 2) va.currentTime = time % va.duration;
-                const assetW = va.videoWidth || va.width, assetH = va.videoHeight || va.height;
-                const targetW = offscreenCanvas.width, targetH = offscreenCanvas.height;
-                const scale = state.vinylFit ? Math.min(targetW/assetW, targetH/assetH) : Math.max(targetW/assetW, targetH/assetH);
-                offCtx.drawImage(va, state.expressMode ? (targetW-assetW*scale)/2 : -(assetW*scale)/2, state.expressMode ? (targetH-assetH*scale)/2 : -(assetH*scale)/2, assetW*scale, assetH*scale);
-            }
-
-            if (state.showCenterDot && !state.expressMode) {
-                offCtx.beginPath(); offCtx.arc(0, 0, vinylDim * state.holeSize, 0, Math.PI * 2);
-                offCtx.fillStyle = '#000000'; offCtx.fill();
-            }
-
-            if (state.showHole && !state.expressMode) {
-                offCtx.globalCompositeOperation = 'destination-out';
-                offCtx.beginPath(); offCtx.arc(0, 0, vinylDim * state.holeSize, 0, Math.PI * 2); offCtx.fill();
-            }
-            offCtx.restore();
-
-            ctx.save();
-            if (state.expressMode) {
-                ctx.drawImage(offscreenCanvas, 0, 0);
-            } else {
-                ctx.translate(state.vx, state.vy);
-                ctx.rotate(angle * Math.PI / 180);
-                ctx.drawImage(offscreenCanvas, -vinylDim/2, -vinylDim/2);
-            }
-            ctx.restore();
-
-            state.textElements.forEach(el => {
-                if (!el.show || !el.text.trim()) return;
-                ctx.save();
-                ctx.globalAlpha = el.opacity;
-                ctx.fillStyle = el.color;
-                ctx.font = `${el.fontSize * (canvas.height/720)}px ${FONT_MAP[el.fontFamily]}`;
-                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-                if (el.shadow) { ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8; }
-                ctx.fillText(el.text, el.x * canvas.width, el.y * canvas.height);
-                ctx.restore();
-            });
-        }
-
-        // --- DRAG ---
-        canvas.onmousedown = (e) => {
-            const r = canvas.getBoundingClientRect();
-            const mx = (e.clientX - r.left) / r.width, my = (e.clientY - r.top) / r.height;
-            for (let i = state.textElements.length - 1; i >= 0; i--) {
-                const el = state.textElements[i]; if (!el.show) continue;
-                ctx.font = `${el.fontSize}px ${FONT_MAP[el.fontFamily]}`;
-                const w = ctx.measureText(el.text).width / canvas.width, h = el.fontSize / canvas.height;
-                if (Math.abs(mx - el.x) < w/2 && Math.abs(my - el.y) < h/2) { state.draggedItem = el; return; }
-            }
-            const dist = Math.sqrt(Math.pow(mx - state.vinylX, 2) + Math.pow(my - state.vinylY, 2));
-            if (dist * (canvas.width/r.width) * r.width < state.vRadius) state.draggedItem = "vinyl";
-        };
-
-        window.onmousemove = (e) => {
-            if (!state.draggedItem) return;
-            const r = canvas.getBoundingClientRect();
-            const x = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
-            const y = Math.max(0, Math.min(1, (e.clientY - r.top) / r.height));
-            if (state.draggedItem === "vinyl") { state.vinylX = x; state.vinylY = y; }
-            else { state.draggedItem.x = x; state.draggedItem.y = y; }
+        function clearAsset(type) {
+            if (type === 'vinyl') { state.vinylAsset = null; document.getElementById('vinylInput').value = ''; }
+            else { state.bgAsset = null; document.getElementById('bgInput').value = ''; }
+            updateStaticFlag();
             drawFrame(state.pausedAt);
-        };
-        window.onmouseup = () => { if(state.draggedItem) saveToStorage(); state.draggedItem = null; };
-
-        // --- AUDIO ---
-        async function handleAudioFile(file) {
-            state.audioFile = file;
-            state.currentAudioName = file.name.replace(/\.[^/.]+$/, "");
-            state.audioCtx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
-            state.audioBuffer = await state.audioCtx.decodeAudioData(await file.arrayBuffer());
-            
-            // Gain Node and Analyser Setup
-            state.gainNode = state.audioCtx.createGain();
-            state.gainNode.gain.value = state.audioVolume / 100;
-            state.analyser = state.audioCtx.createAnalyser();
-            state.analyser.fftSize = 256;
-            state.dataArray = new Uint8Array(state.analyser.frequencyBinCount);
-            
-            state.trimStart = 0;
-            state.trimEnd = state.audioBuffer.duration;
-            
-            document.getElementById('trimStart').max = state.audioBuffer.duration;
-            document.getElementById('trimEnd').max = state.audioBuffer.duration;
-            document.getElementById('trimEnd').value = state.audioBuffer.duration;
-            document.getElementById('playPauseBtn').disabled = false;
-            document.getElementById('exportBtn').disabled = false;
-            document.getElementById('timeTot').textContent = formatTime(state.audioBuffer.duration);
-            document.getElementById('seekBar').max = state.audioBuffer.duration;
-            syncUI();
-            drawFrame(0);
+            saveToStorage();
         }
 
-        // --- EXPORT ---
-        async function runExport() {
-            if (state.batchFiles.length > 3) {
-                document.getElementById('statusLabel').textContent = "Free batch limit is 3 files. Upgrade for unlimited.";
-                return;
-            }
-            if (state.batchFiles.length > 1) {
-                for(let i=0; i<state.batchFiles.length; i++) {
-                    if (state.shouldCancel) break;
-                    await handleAudioFile(state.batchFiles[i]);
-                    document.getElementById('statusLabel').textContent = `Batch: ${i+1}/${state.batchFiles.length}`;
-                    await performSingleExport(state.currentAudioName);
-                }
-            } else {
-                const name = prompt("Export Filename:", state.currentAudioName);
-                if(name) await performSingleExport(name);
-            }
+        function updateStaticFlag() {
+            const vinylIsVideo = state.vinylAsset && state.vinylAsset.tagName === 'VIDEO';
+            const bgIsVideo = state.bgAsset && state.bgAsset.tagName === 'VIDEO';
+            state.isStatic = !(vinylIsVideo || bgIsVideo);
         }
 
-        async function performSingleExport(filename) {
-            state.isExporting = true;
-            state.shouldCancel = false;
-            const originalWaveform = state.showWaveform;
-            state.showWaveform = false;
-            
-            const exportArea = document.getElementById('exportProgress');
-            const pBar = document.getElementById('progressBar');
-            const loader = document.getElementById('ffmpegLoader');
-            const label = document.getElementById('statusLabel');
-            
-            exportArea.classList.remove('hidden');
-            document.getElementById('exportBtn').disabled = true;
-            label.textContent = "Checking FFmpeg...";
-
-            try {
-                if (!state.ffmpeg) { 
-                    label.textContent = "Loading FFmpeg (one-time setup)...";
-                    loader.style.display = 'inline-block';
-                    state.ffmpeg = createFFmpeg({ log: false }); 
-                    await state.ffmpeg.load(); 
-                    loader.style.display = 'none';
-                }
-                
-                label.textContent = "Generating Frames...";
-                const fps = 24;
-                const trimDur = Math.max(3, state.trimEnd - state.trimStart);
-                const duration = state.isStatic ? 2.0 : trimDur;
-                const totalFrames = Math.floor(duration * fps);
-                
-                for (let i = 0; i < totalFrames; i++) {
-                    if (state.shouldCancel) throw new Error("Cancelled by user");
-                    drawFrame(state.trimStart + (i / fps));
-                    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
-                    state.ffmpeg.FS('writeFile', `f_${i.toString().padStart(5,'0')}.jpg`, await fetchFile(blob));
-                    pBar.style.width = ((i / totalFrames) * 100) + '%';
-                    document.getElementById('percentText').textContent = Math.round((i / totalFrames) * 100) + '%';
-                    if (i === 0) state.ffmpeg.FS('writeFile', 'thumb.jpg', await fetchFile(blob));
-                }
-
-                label.textContent = "Encoding Video...";
-                state.ffmpeg.FS('writeFile', 'audio_raw.mp3', await fetchFile(state.audioFile));
-                
-                const loopArgs = state.isStatic ? ['-stream_loop', '-1'] : [];
-                const volFilter = state.audioVolume !== 100 ? ['-af', `volume=${state.audioVolume/100}`] : [];
-                const artist = state.textElements.find(t=>t.id==='artist').text || "";
-                const title = state.textElements.find(t=>t.id==='title').text || "";
-
-                await state.ffmpeg.run(
-                    '-framerate', String(fps), 
-                    ...loopArgs, 
-                    '-i', 'f_%05d.jpg', 
-                    '-ss', String(state.trimStart), 
-                    '-t', String(trimDur), 
-                    '-i', 'audio_raw.mp3', 
-                    ...volFilter,
-                    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-shortest', 'temp.mp4'
-                );
-
-                await state.ffmpeg.run('-i', 'temp.mp4', '-i', 'thumb.jpg', '-map', '0', '-map', '1', '-c', 'copy', '-disposition:v:1', 'attached_pic', '-metadata', `artist=${artist}`, '-metadata', `title=${title}`, 'out.mp4');
-
-                const data = state.ffmpeg.FS('readFile', 'out.mp4');
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
-                link.download = `${filename}.mp4`; 
-                link.click();
-                
-                label.textContent = "Done!";
-            } catch (e) { 
-                label.textContent = "Export failed: " + e.message;
-                console.warn(e);
-            } finally {
-                // Cleanup Memory Leak
-                if (state.ffmpeg) {
-                    try {
-                        const files = state.ffmpeg.FS('readdir', '/');
-                        files.forEach(f => {
-                            if (f.startsWith('f_') || f === 'thumb.jpg' || f === 'temp.mp4' || f === 'audio_raw.mp3' || f === 'out.mp4') {
-                                state.ffmpeg.FS('unlink', f);
-                            }
-                        });
-                    } catch(err) {}
-                }
-
-                state.isExporting = false; 
-                state.showWaveform = originalWaveform;
-                document.getElementById('exportBtn').disabled = false;
-                setTimeout(() => { if(!state.isExporting) exportArea.classList.add('hidden'); }, 3000);
-            }
+        // --- Resolution ---
+        function applyResolution(r) {
+            state.res = parseInt(r);
+            const scale = state.res / 720;
+            if (state.ratio === '1:1') { canvas.width = 720 * scale; canvas.height = 720 * scale; }
+            else if (state.ratio === '9:16') { canvas.width = 405 * scale; canvas.height = 720 * scale; }
+            else if (state.ratio === '16:9') { canvas.width = 1280 * scale; canvas.height = 720 * scale; }
+            else if (state.ratio === 'spotify') { canvas.width = 1080; canvas.height = 1920; }
+            state.width = canvas.width; state.height = canvas.height;
+            drawFrame(state.pausedAt);
         }
 
-        // --- UI ---
+        // --- Text Controls ---
         function initTextControls() {
             const container = document.getElementById('textOverlayControls');
             const section = document.getElementById('textSection');
@@ -719,7 +514,7 @@
                         <div class="flex items-center gap-2">
                             <button onclick="moveLayer(${idx}, 1)" class="text-[10px] hover:text-cyan-400">↑</button>
                             <button onclick="moveLayer(${idx}, -1)" class="text-[10px] hover:text-cyan-400">↓</button>
-                            <span class="text-[9px] font-bold uppercase text-zinc-500">${el.id}</span>
+                            <span class="text-[9px] font-bold uppercase text-slate-500">${el.id}</span>
                         </div>
                         <input type="checkbox" ${el.show ? 'checked' : ''} onchange="updateText(${idx}, 'show', this.checked)">
                     </div>
@@ -733,144 +528,479 @@
                         </div>
                         <input type="range" min="10" max="150" value="${el.fontSize}" oninput="updateText(${idx}, 'fontSize', parseInt(this.value))" class="w-full">
                         <div class="flex items-center justify-between"><span class="toggle-label-sm">Shadow</span><input type="checkbox" ${el.shadow ? 'checked' : ''} onchange="updateText(${idx}, 'shadow', this.checked)"></div>
+                        <input type="range" min="0" max="100" value="${el.opacity*100}" oninput="updateText(${idx}, 'opacity', this.value/100)" class="w-full">
                     </div>
                 `;
                 container.appendChild(div);
             });
         }
 
-        function updateText(idx, key, val) { state.textElements[idx][key] = val; if(key === 'show') initTextControls(); saveToStorage(); drawFrame(state.pausedAt); }
-        function moveLayer(idx, dir) { const n = idx + dir; if(n<0||n>=state.textElements.length) return; const t = state.textElements.splice(idx,1)[0]; state.textElements.splice(n,0,t); initTextControls(); saveToStorage(); drawFrame(state.pausedAt); }
-        
-        function applyResolution(r) {
-            state.res = parseInt(r);
-            const scale = state.res / 720;
-            if (state.ratio === '1:1') { canvas.width = 720 * scale; canvas.height = 720 * scale; }
-            else if (state.ratio === '9:16') { canvas.width = 405 * scale; canvas.height = 720 * scale; }
-            else if (state.ratio === '16:9') { canvas.width = 1280 * scale; canvas.height = 720 * scale; }
-            else if (state.ratio === 'spotify') { canvas.width = 1080; canvas.height = 1920; }
+        window.updateText = (idx, key, val) => {
+            state.textElements[idx][key] = val;
+            if (key === 'show') initTextControls();
+            saveToStorage();
+            drawFrame(state.pausedAt);
+        };
+
+        window.moveLayer = (idx, dir) => {
+            const n = idx + dir;
+            if (n < 0 || n >= state.textElements.length) return;
+            const t = state.textElements.splice(idx, 1)[0];
+            state.textElements.splice(n, 0, t);
+            initTextControls();
+            saveToStorage();
+            drawFrame(state.pausedAt);
+        };
+
+        // --- FFmpeg Preload ---
+        async function preloadFFmpeg() {
+            try {
+                state.ffmpeg = createFFmpeg({ log: false });
+                await state.ffmpeg.load();
+                state.isFFmpegReady = true;
+            } catch (e) { console.error("FFmpeg load error", e); }
+        }
+
+        // --- Timeline Functions ---
+        const timeline = document.getElementById('timelineContainer');
+        const hStart = document.getElementById('handleStart');
+        const hEnd = document.getElementById('handleEnd');
+        const phead = document.getElementById('playhead');
+        const tRange = document.getElementById('trimRange');
+        let activeHandle = null;
+
+        function updateTimelineUI() {
+            if (!state.audioBuffer) return;
+            const dur = state.audioBuffer.duration;
+            const sPct = (state.trimStart / dur) * 100;
+            const ePct = (state.trimEnd / dur) * 100;
+            const pPct = (state.pausedAt / dur) * 100;
+
+            hStart.style.left = `calc(${sPct}% - 6px)`;
+            hEnd.style.left = `calc(${ePct}% - 6px)`;
+            tRange.style.left = sPct + '%';
+            tRange.style.width = (ePct - sPct) + '%';
+            phead.style.left = pPct + '%';
+
+            document.getElementById('trimInfo').textContent = `Trim: ${(state.trimEnd - state.trimStart).toFixed(1)}s selected`;
+        }
+
+        function drawWaveform() {
+            const wCanvas = document.getElementById('waveformCanvas');
+            const wCtx = wCanvas.getContext('2d');
+            const container = document.getElementById('timelineContainer');
+            wCanvas.width = container.clientWidth;
+            wCanvas.height = container.clientHeight;
+            // FIX: Guard against zero width
+            if (wCanvas.width === 0 || wCanvas.height === 0) return;
+            if (!state.audioBuffer) return;
+
+            const data = state.audioBuffer.getChannelData(0);
+            const step = Math.ceil(data.length / wCanvas.width);
+            const amp = wCanvas.height / 2;
             
-            // Resolution state sync (Feature 9)
-            state.width = canvas.width;
-            state.height = canvas.height;
+            wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
+            wCtx.fillStyle = '#00e5ff';
+            for (let i = 0; i < wCanvas.width; i++) {
+                let min = 1.0, max = -1.0;
+                for (let j = 0; j < step; j++) {
+                    const datum = data[(i * step) + j];
+                    if (datum < min) min = datum;
+                    if (datum > max) max = datum;
+                }
+                wCtx.fillRect(i, (1 + min) * amp, 1, Math.max(1, (max - min) * amp));
+            }
+        }
+
+        function handleTimelineMove(e) {
+            if (!activeHandle || !state.audioBuffer) return;
+            const r = timeline.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+            const target = x * state.audioBuffer.duration;
+
+            if (activeHandle === 'start') {
+                state.trimStart = Math.min(target, state.trimEnd - 3);
+                // FIX: Clamp pausedAt if it falls outside new trim range
+                if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
+                if (state.pausedAt > state.trimEnd) state.pausedAt = state.trimEnd;
+            } else if (activeHandle === 'end') {
+                state.trimEnd = Math.max(target, state.trimStart + 3);
+                if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
+                if (state.pausedAt > state.trimEnd) state.pausedAt = state.trimEnd;
+            } else if (activeHandle === 'playhead') {
+                if (state.isPlaying) togglePlay();
+                state.pausedAt = target;
+            }
+            updateTimelineUI();
+            drawFrame(state.pausedAt);
+            document.getElementById('timeCur').textContent = formatTime(state.pausedAt);
+        }
+
+        // --- Render Engine (with offscreen hole punching) ---
+        function drawFrame(time) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = state.bgColor;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Background
+            if (state.bgAsset) {
+                ctx.save();
+                ctx.globalAlpha = state.bgOpacity;
+                const asset = state.bgAsset;
+                if (asset.tagName === 'VIDEO' && asset.readyState >= 2) asset.currentTime = time % asset.duration;
+                const assetW = asset.videoWidth || asset.width, assetH = asset.videoHeight || asset.height;
+                const scale = state.bgFit ? Math.min(canvas.width / assetW, canvas.height / assetH) : Math.max(canvas.width / assetW, canvas.height / assetH);
+                ctx.drawImage(asset, (canvas.width - assetW*scale)/2, (canvas.height - assetH*scale)/2, assetW*scale, assetH*scale);
+                ctx.restore();
+            }
+
+            // Waveform (on canvas)
+            if (state.showWaveform && state.analyser) {
+                state.analyser.getByteFrequencyData(state.dataArray);
+                ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
+                const barWidth = (canvas.width / state.dataArray.length) * 2.5;
+                let x = 0;
+                for(let i = 0; i < state.dataArray.length; i++) {
+                    const barHeight = (state.dataArray[i] / 255) * (canvas.height * 0.15);
+                    ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                    x += barWidth + 1;
+                }
+            }
+
+            // Volume meter update
+            if (state.analyser && state.isPlaying) {
+                state.analyser.getByteFrequencyData(state.dataArray);
+                let sum = 0;
+                for (let i = 0; i < 100; i++) sum += state.dataArray[i];
+                document.getElementById('volumeFill').style.height = Math.min(100, (sum/100) * 0.8) + '%';
+            } else if (!state.isPlaying) {
+                document.getElementById('volumeFill').style.height = '0%';
+            }
+
+            // Vinyl compositing (offscreen hole punching)
+            const angle = state.expressMode ? 0 : (time * (180 + state.speedOffset) * (state.revRotation ? -1 : 1)) % 360;
+            const vDim = Math.min(canvas.width, canvas.height) * state.vinylScale;
+            
+            offscreenCanvas.width = vDim;
+            offscreenCanvas.height = vDim;
+            offCtx.clearRect(0, 0, vDim, vDim);
+            
+            offCtx.save();
+            offCtx.translate(vDim/2, vDim/2);
+            offCtx.beginPath();
+            offCtx.arc(0, 0, vDim/2, 0, Math.PI*2);
+            offCtx.clip();
+
+            if (state.showVinylFill) {
+                offCtx.fillStyle = state.vinylFillColor;
+                offCtx.fillRect(-vDim/2, -vDim/2, vDim, vDim);
+            }
+
+            if (state.vinylAsset) {
+                const va = state.vinylAsset;
+                if (va.tagName === 'VIDEO' && va.readyState >= 2) va.currentTime = time % va.duration;
+                const assetW = va.videoWidth || va.width, assetH = va.videoHeight || va.height;
+                const scale = state.vinylFit ? Math.min(vDim/assetW, vDim/assetH) : Math.max(vDim/assetW, vDim/assetH);
+                offCtx.globalAlpha = state.vinylOpacity;
+                offCtx.drawImage(va, -(assetW*scale)/2, -(assetH*scale)/2, assetW*scale, assetH*scale);
+            }
+
+            if (state.showCenterDot) {
+                offCtx.globalAlpha = 1.0;
+                offCtx.beginPath();
+                offCtx.arc(0, 0, vDim * state.holeSize, 0, Math.PI*2);
+                offCtx.fillStyle = '#000';
+                offCtx.fill();
+            }
+
+            if (state.showHole) {
+                offCtx.globalCompositeOperation = 'destination-out';
+                offCtx.beginPath();
+                offCtx.arc(0, 0, vDim * state.holeSize, 0, Math.PI*2);
+                offCtx.fill();
+            }
+            offCtx.restore();
+
+            ctx.save();
+            ctx.translate(state.vinylX * canvas.width, state.vinylY * canvas.height);
+            ctx.rotate(angle * Math.PI / 180);
+            ctx.drawImage(offscreenCanvas, -vDim/2, -vDim/2);
+            ctx.restore();
+
+            // Text
+            state.textElements.forEach(el => {
+                if (!el.show || !el.text.trim()) return;
+                ctx.save();
+                ctx.globalAlpha = el.opacity;
+                ctx.fillStyle = el.color;
+                ctx.font = `${el.fontSize * (canvas.height/720)}px ${FONT_MAP[el.fontFamily]}`;
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                if (el.shadow) { ctx.shadowColor = 'rgba(0,0,0,0.8)'; ctx.shadowBlur = 8; }
+                ctx.fillText(el.text, el.x * canvas.width, el.y * canvas.height);
+                ctx.restore();
+            });
+        }
+
+        // --- Drag ---
+        function handleStart(e) {
+            const r = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            if (e.touches) document.getElementById('touchBanner').classList.remove('hidden');
+
+            const mx = (clientX - r.left) / r.width, my = (clientY - r.top) / r.height;
+            for (let i = state.textElements.length - 1; i >= 0; i--) {
+                const el = state.textElements[i]; if (!el.show) continue;
+                ctx.font = `${el.fontSize}px ${FONT_MAP[el.fontFamily]}`;
+                const w = ctx.measureText(el.text).width / canvas.width, h = el.fontSize / canvas.height;
+                if (Math.abs(mx - el.x) < w/2 && Math.abs(my - el.y) < h/2) { state.draggedItem = el; return; }
+            }
+            const dist = Math.sqrt(Math.pow(mx - state.vinylX, 2) + Math.pow(my - state.vinylY, 2));
+            if (dist < (state.vinylScale * 0.5)) state.draggedItem = "vinyl";
+        }
+
+        function handleMove(e) {
+            if (!state.draggedItem) return;
+            e.preventDefault();
+            const r = canvas.getBoundingClientRect();
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            const x = Math.max(0, Math.min(1, (clientX - r.left) / r.width));
+            const y = Math.max(0, Math.min(1, (clientY - r.top) / r.height));
+            if (state.draggedItem === "vinyl") { state.vinylX = x; state.vinylY = y; }
+            else { state.draggedItem.x = x; state.draggedItem.y = y; }
             drawFrame(state.pausedAt);
         }
 
+        canvas.addEventListener('mousedown', handleStart);
+        canvas.addEventListener('touchstart', handleStart, {passive: false});
+        window.addEventListener('mousemove', handleMove);
+        window.addEventListener('touchmove', handleMove, {passive: false});
+        window.addEventListener('mouseup', () => { if(state.draggedItem) saveToStorage(); state.draggedItem = null; });
+        window.addEventListener('touchend', () => { if(state.draggedItem) saveToStorage(); state.draggedItem = null; });
+
+        // --- Audio ---
+        async function handleAudioFile(file) {
+            state.audioFile = file;
+            state.currentAudioName = file.name.replace(/\.[^/.]+$/, "");
+            state.audioCtx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+            state.audioBuffer = await state.audioCtx.decodeAudioData(await file.arrayBuffer());
+            
+            state.gainNode = state.audioCtx.createGain();
+            state.gainNode.gain.value = state.audioVolume / 100;
+            state.analyser = state.audioCtx.createAnalyser();
+            state.analyser.fftSize = 256;
+            state.dataArray = new Uint8Array(state.analyser.frequencyBinCount);
+            
+            state.trimStart = 0;
+            state.trimEnd = state.audioBuffer.duration;
+            state.pausedAt = 0;
+            
+            document.getElementById('playPauseBtn').disabled = false;
+            document.getElementById('exportBtn').disabled = false;
+            document.getElementById('timeTot').textContent = formatTime(state.audioBuffer.duration);
+            
+            drawWaveform();
+            updateTimelineUI();
+            drawFrame(0);
+        }
+
+        function togglePlay() {
+            if (state.isPlaying) {
+                state.sourceNode.stop();
+                state.pausedAt = state.audioCtx.currentTime - state.startTime;
+                state.isPlaying = false;
+                toggleIcons(false);
+            } else {
+                state.audioCtx.resume();
+                state.sourceNode = state.audioCtx.createBufferSource();
+                state.sourceNode.buffer = state.audioBuffer;
+                state.sourceNode.connect(state.gainNode);
+                state.gainNode.connect(state.audioCtx.destination);
+                state.sourceNode.connect(state.analyser);
+                state.sourceNode.start(0, state.pausedAt);
+                state.startTime = state.audioCtx.currentTime - state.pausedAt;
+                state.isPlaying = true;
+                toggleIcons(true);
+                requestAnimationFrame(playbackLoop);
+            }
+        }
+
+        function toggleIcons(p) {
+            document.getElementById('playIcon').classList.toggle('hidden', p);
+            document.getElementById('pauseIcon').classList.toggle('hidden', !p);
+        }
+
+        function playbackLoop() {
+            if (!state.isPlaying || state.isExporting) return;
+            const now = state.audioCtx.currentTime - state.startTime;
+            if (now >= state.trimEnd) {
+                state.pausedAt = state.trimStart;
+                togglePlay();
+                return;
+            }
+            state.pausedAt = now;
+            document.getElementById('timeCur').textContent = formatTime(now);
+            updateTimelineUI();
+            drawFrame(now);
+            requestAnimationFrame(playbackLoop);
+        }
+
+        // --- Export ---
+        async function runExport() {
+            if (state.batchFiles.length > 3) {
+                document.getElementById('batchError').classList.remove('hidden');
+                return;
+            }
+            if (state.batchFiles.length > 1) {
+                for (let i=0; i<state.batchFiles.length; i++) {
+                    if (state.shouldCancel) break;
+                    await handleAudioFile(state.batchFiles[i]);
+                    document.getElementById('statusText').textContent = `Batch ${i+1}/${state.batchFiles.length}`;
+                    await performSingleExport(state.currentAudioName);
+                }
+            } else {
+                let name = prompt("Export Filename:", state.currentAudioName);
+                if (name) {
+                    const sanitized = name.replace(/[^a-z0-9 _-]/gi, '_');
+                    await performSingleExport(sanitized);
+                }
+            }
+        }
+
+        async function performSingleExport(filename) {
+            state.isExporting = true;
+            state.shouldCancel = false;
+            const area = document.getElementById('exportProgress');
+            const pBar = document.getElementById('progressBar');
+            const status = document.getElementById('statusText');
+            const errDiv = document.getElementById('exportErrorMessage');
+            area.classList.remove('hidden');
+            errDiv.classList.add('hidden');
+            document.getElementById('exportBtn').disabled = true;
+
+            try {
+                if (!state.isFFmpegReady) {
+                    status.textContent = 'Loading FFmpeg...';
+                    await preloadFFmpeg();
+                }
+
+                // --- Cleanup VFS (Fix #1) ---
+                try {
+                    const files = state.ffmpeg.FS('readdir', '/');
+                    files.forEach(f => {
+                        if (f.startsWith('f_') || ['thumb.jpg', 'audio.mp3', 'temp.mp4', 'out.mp4'].includes(f)) {
+                            try { state.ffmpeg.FS('unlink', f); } catch(e) {}
+                        }
+                    });
+                } catch(e) {}
+
+                const fps = 24;
+                const trimDur = state.trimEnd - state.trimStart;
+                const duration = state.isStatic ? 2.0 : trimDur;
+                const totalFrames = Math.floor(duration * fps);
+                
+                status.textContent = 'Rendering frames...';
+                for (let i = 0; i < totalFrames; i++) {
+                    if (state.shouldCancel) throw new Error('Cancelled');
+                    drawFrame(state.trimStart + (i / fps));
+                    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.9));
+                    state.ffmpeg.FS('writeFile', `f_${i.toString().padStart(5,'0')}.jpg`, await fetchFile(blob));
+                    pBar.style.width = ((i / totalFrames) * 100) + '%';
+                    document.getElementById('percentText').textContent = Math.round((i / totalFrames) * 100) + '%';
+                    if (i === 0) state.ffmpeg.FS('writeFile', 'thumb.jpg', await fetchFile(blob));
+                }
+
+                status.textContent = 'Encoding...';
+                state.ffmpeg.FS('writeFile', 'audio.mp3', await fetchFile(state.audioFile));
+                const loopArgs = state.isStatic ? ['-stream_loop', '-1'] : [];
+                const volFilter = state.audioVolume !== 100 ? ['-af', `volume=${state.audioVolume/100}`] : [];
+
+                await state.ffmpeg.run(
+                    '-framerate', String(fps), ...loopArgs, '-i', 'f_%05d.jpg',
+                    '-ss', String(state.trimStart), '-t', String(trimDur), '-i', 'audio.mp3',
+                    ...volFilter,
+                    '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p', '-shortest', 'temp.mp4'
+                );
+
+                const artist = state.textElements.find(t=>t.id==='artist').text || "";
+                const title = state.textElements.find(t=>t.id==='title').text || "";
+                await state.ffmpeg.run(
+                    '-i', 'temp.mp4', '-i', 'thumb.jpg', '-map', '0', '-map', '1',
+                    '-c', 'copy', '-disposition:v:1', 'attached_pic',
+                    '-metadata', `artist=${artist}`, '-metadata', `title=${title}`,
+                    'out.mp4'
+                );
+
+                const data = state.ffmpeg.FS('readFile', 'out.mp4');
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(new Blob([data.buffer], { type: 'video/mp4' }));
+                link.download = `${filename}.mp4`;
+                link.click();
+                status.textContent = 'Done!';
+            } catch (e) {
+                errDiv.textContent = 'Export failed: ' + e.message;
+                errDiv.classList.remove('hidden');
+            } finally {
+                state.isExporting = false;
+                document.getElementById('exportBtn').disabled = false;
+                setTimeout(() => { if (!state.isExporting) area.classList.add('hidden'); }, 3000);
+                state.shouldCancel = false;
+            }
+        }
+
+        // --- Asset Loading ---
         async function loadAsset(file) {
             const url = URL.createObjectURL(file);
             return new Promise((resolve, reject) => {
                 if (file.type.startsWith('video')) {
                     const v = document.createElement('video');
                     v.src = url; v.muted = true; v.loop = true;
-                    // Error Handling (Feature 3)
-                    v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load video asset")); };
-                    v.onloadeddata = () => v.play().then(() => { v.pause(); resolve(v); });
+                    v.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Video load fail")); };
+                    v.onloadeddata = () => {
+                        URL.revokeObjectURL(url);
+                        v.play().then(() => { v.pause(); resolve(v); });
+                    };
                 } else {
                     const img = new Image();
                     img.src = url;
-                    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Failed to load image asset")); };
-                    img.onload = () => resolve(img);
+                    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error("Image load fail")); };
+                    img.onload = () => { URL.revokeObjectURL(url); resolve(img); };
                 }
             });
         }
 
-        function clearAsset(t) { if(t==='vinyl') state.vinylAsset=null; else state.bgAsset=null; updateStaticFlag(); drawFrame(state.pausedAt); }
-        function updateStaticFlag() { state.isStatic = !(state.vinylAsset?.tagName==='VIDEO' || state.bgAsset?.tagName==='VIDEO'); }
-        function formatTime(s) { const m=Math.floor(s/60); const sc=Math.floor(s%60); return `${m.toString().padStart(2,'0')}:${sc.toString().padStart(2,'0')}`; }
-
-        function togglePlay() {
-            if (state.isPlaying) {
-                state.sourceNode.stop(); state.pausedAt = state.audioCtx.currentTime - state.startTime; state.isPlaying = false;
-                toggleIcons(false);
-            } else {
-                state.audioCtx.resume(); 
-                state.sourceNode = state.audioCtx.createBufferSource();
-                state.sourceNode.buffer = state.audioBuffer;
-                
-                // Audio Volume Logic (Feature 5)
-                state.gainNode.gain.value = state.audioVolume / 100;
-                state.sourceNode.connect(state.gainNode);
-                state.gainNode.connect(state.audioCtx.destination);
-                state.sourceNode.connect(state.analyser);
-                
-                state.sourceNode.start(0, state.pausedAt); 
-                state.startTime = state.audioCtx.currentTime - state.pausedAt;
-                state.isPlaying = true; toggleIcons(true); requestAnimationFrame(playbackLoop);
-            }
-        }
-        function toggleIcons(p) { document.getElementById('playIcon').classList.toggle('hidden', p); document.getElementById('pauseIcon').classList.toggle('hidden', !p); }
-        function playbackLoop() {
-            if (!state.isPlaying || state.isExporting) return;
-            const now = state.audioCtx.currentTime - state.startTime;
-            if (now >= state.trimEnd) { 
-                state.isPlaying = false; 
-                state.pausedAt = state.trimStart; 
-                if (state.sourceNode) state.sourceNode.stop();
-                toggleIcons(false); 
-                return; 
-            }
-            document.getElementById('seekBar').value = now; document.getElementById('timeCur').textContent = formatTime(now);
-            drawFrame(now); requestAnimationFrame(playbackLoop);
-        }
-
-        // BINDINGS
+        // --- Event Bindings ---
         document.getElementById('expressMode').onchange = (e) => { state.expressMode = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('vinylSize').oninput = (e) => { state.vinylScale = e.target.value/100; document.getElementById('sizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('speedOffset').oninput = (e) => { state.speedOffset = parseInt(e.target.value); document.getElementById('speedVal').textContent = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
+        document.getElementById('vinylOpacity').oninput = (e) => { state.vinylOpacity = e.target.value/100; document.getElementById('vinylOpacityVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
+        document.getElementById('audioVolume').oninput = (e) => { state.audioVolume = parseInt(e.target.value); document.getElementById('volVal').textContent = e.target.value+'%'; if(state.gainNode) state.gainNode.gain.value = state.audioVolume/100; saveToStorage(); };
         document.getElementById('showWaveform').onchange = (e) => { state.showWaveform = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('exportRes').onchange = (e) => { state.res = e.target.value; applyResolution(state.res); saveToStorage(); };
-        document.getElementById('ratioPresets').onclick = (e) => { 
-            const b = e.target.closest('button'); if(!b) return; 
-            state.ratio = b.dataset.ratio; syncUI(); saveToStorage();
-        };
-        document.getElementById('audioVolume').oninput = (e) => { 
-            state.audioVolume = parseInt(e.target.value); 
-            document.getElementById('volVal').textContent = e.target.value + '%';
-            if (state.gainNode) state.gainNode.gain.value = state.audioVolume / 100;
-            saveToStorage(); 
-        };
-        document.getElementById('trimStart').oninput = (e) => { 
-            state.trimStart = parseFloat(e.target.value); 
-            if (state.trimStart >= state.trimEnd - 3) state.trimStart = state.trimEnd - 3;
-            document.getElementById('trimStartVal').textContent = state.trimStart.toFixed(1);
-            state.pausedAt = state.trimStart;
-            drawFrame(state.pausedAt);
-        };
-        document.getElementById('trimEnd').oninput = (e) => { 
-            state.trimEnd = parseFloat(e.target.value); 
-            if (state.trimEnd <= state.trimStart + 3) state.trimEnd = state.trimStart + 3;
-            document.getElementById('trimEndVal').textContent = state.trimEnd.toFixed(1);
-            saveToStorage();
-        };
-
-        document.getElementById('vinylInput').onchange = async (e) => { state.vinylAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); };
-        document.getElementById('bgInput').onchange = async (e) => { state.bgAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); };
+        document.getElementById('ratioPresets').onclick = (e) => { const b = e.target.closest('button'); if(b) { state.ratio = b.dataset.ratio; syncUI(); saveToStorage(); } };
+        document.getElementById('vinylInput').onchange = async (e) => { state.vinylAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); saveToStorage(); };
+        document.getElementById('bgInput').onchange = async (e) => { state.bgAsset = await loadAsset(e.target.files[0]); updateStaticFlag(); drawFrame(state.pausedAt); saveToStorage(); };
         document.getElementById('audioInput').onchange = (e) => {
             const files = Array.from(e.target.files);
-            // Batch limit check (Feature 6)
+            const batchError = document.getElementById('batchError');
+            const batchQueue = document.getElementById('batchQueue');
             if (files.length > 3) {
-                alert("Free batch limit is 3 files. Upgrade for unlimited.");
-                e.target.value = ""; return;
+                batchError.classList.remove('hidden');
+                batchQueue.innerHTML = '';  // FIX: Clear queue on error
+                e.target.value = "";
+                return;
             }
+            batchError.classList.add('hidden');
             state.batchFiles = files;
-            const list = document.getElementById('batchQueue');
-            list.innerHTML = files.map(f => `<div>• ${f.name}</div>`).join('');
-            if(files.length === 1) handleAudioFile(files[0]);
+            batchQueue.innerHTML = files.map(f => `<div>• ${f.name}</div>`).join('');
+            if (files.length === 1) handleAudioFile(files[0]);
             else if (files.length > 1) document.getElementById('exportBtn').disabled = false;
         };
-        
         document.getElementById('playPauseBtn').onclick = togglePlay;
         document.getElementById('exportBtn').onclick = runExport;
-        document.getElementById('cancelBtn').onclick = () => { state.shouldCancel = true; document.getElementById('statusLabel').textContent = "Stopping..."; };
-        document.getElementById('seekBar').oninput = (e) => { 
-            state.pausedAt = parseFloat(e.target.value); 
-            if(state.isPlaying) togglePlay(); 
-            document.getElementById('timeCur').textContent = formatTime(state.pausedAt);
-            drawFrame(state.pausedAt); 
-        };
-
-        document.getElementById('holeSize').oninput = (e) => { state.holeSize = e.target.value/100; document.getElementById('holeSizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
-        document.getElementById('vinylFillColor').oninput = (e) => { state.vinylFillColor = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
+        document.getElementById('cancelBtn').onclick = () => state.shouldCancel = true;
         document.getElementById('bgColor').oninput = (e) => { state.bgColor = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('bgOpacity').oninput = (e) => { state.bgOpacity = e.target.value/100; document.getElementById('opacityVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('showHole').onchange = (e) => { state.showHole = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
@@ -879,18 +1009,44 @@
         document.getElementById('vinylFitToggle').onchange = (e) => { state.vinylFit = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('bgFitToggle').onchange = (e) => { state.bgFit = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('showVinylFill').onchange = (e) => { state.showVinylFill = e.target.checked; saveToStorage(); drawFrame(state.pausedAt); };
+        document.getElementById('holeSize').oninput = (e) => { state.holeSize = e.target.value/100; document.getElementById('holeSizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
+        document.getElementById('vinylFillColor').oninput = (e) => { state.vinylFillColor = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
+
+        // Timeline event listeners
+        timeline.addEventListener('mousedown', (e) => {
+            if (e.target === hStart) activeHandle = 'start';
+            else if (e.target === hEnd) activeHandle = 'end';
+            else activeHandle = 'playhead';
+            handleTimelineMove(e);
+        });
+        timeline.addEventListener('touchstart', (e) => {
+            if (e.target === hStart) activeHandle = 'start';
+            else if (e.target === hEnd) activeHandle = 'end';
+            else activeHandle = 'playhead';
+            handleTimelineMove(e);
+        }, {passive: false});
+        window.addEventListener('mousemove', handleTimelineMove);
+        window.addEventListener('touchmove', handleTimelineMove, {passive: false});
+        window.addEventListener('mouseup', () => { if (activeHandle) saveToStorage(); activeHandle = null; });
+        window.addEventListener('touchend', () => { if (activeHandle) saveToStorage(); activeHandle = null; });
+
+        window.addEventListener('resize', () => { drawWaveform(); });
 
         window.addEventListener('keydown', (e) => {
             if (['INPUT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
             if (e.code === 'Space') { e.preventDefault(); if(!document.getElementById('playPauseBtn').disabled) togglePlay(); }
-            if (e.key === 'ArrowLeft') { state.pausedAt = Math.max(0, state.pausedAt - 2); document.getElementById('seekBar').value = state.pausedAt; drawFrame(state.pausedAt); }
-            if (e.key === 'ArrowRight') { state.pausedAt = Math.min(state.audioBuffer?.duration || 0, state.pausedAt + 2); document.getElementById('seekBar').value = state.pausedAt; drawFrame(state.pausedAt); }
-            if (e.key === 'ArrowUp') { state.speedOffset = Math.min(180, state.speedOffset + 10); syncUI(); }
-            if (e.key === 'ArrowDown') { state.speedOffset = Math.max(-180, state.speedOffset - 10); syncUI(); }
-            if (e.key === '?' || e.key === '/') { toggleShortcuts(); }
+            if (e.key === 'ArrowLeft') { if (state.isPlaying) togglePlay(); state.pausedAt = Math.max(0, state.pausedAt - 2); updateTimelineUI(); drawFrame(state.pausedAt); document.getElementById('timeCur').textContent = formatTime(state.pausedAt); }
+            if (e.key === 'ArrowRight') { if (state.isPlaying) togglePlay(); state.pausedAt = Math.min(state.audioBuffer?.duration || 0, state.pausedAt + 2); updateTimelineUI(); drawFrame(state.pausedAt); document.getElementById('timeCur').textContent = formatTime(state.pausedAt); }
+            if (e.key === 'ArrowUp') { state.speedOffset = Math.min(180, state.speedOffset + 10); syncUI(); drawFrame(state.pausedAt); saveToStorage(); }
+            if (e.key === 'ArrowDown') { state.speedOffset = Math.max(-180, state.speedOffset - 10); syncUI(); drawFrame(state.pausedAt); saveToStorage(); }
+            if (e.key === '?' || e.key === '/') toggleHelp();
+            if (e.key === 'Escape') document.getElementById('helpOverlay').classList.add('hidden');
         });
 
+        // Initialize
         loadFromStorage();
+        preloadFFmpeg();
+        updateStaticFlag();
         drawFrame(0);
     </script>
 </body>
