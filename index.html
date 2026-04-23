@@ -8,13 +8,14 @@
     <!-- Favicon (inline SVG vinyl record) -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='48' fill='%23111' stroke='%2300e5ff' stroke-width='4'/%3E%3Ccircle cx='50' cy='50' r='30' fill='none' stroke='%2300e5ff' stroke-width='2' stroke-dasharray='4 4'/%3E%3Ccircle cx='50' cy='50' r='10' fill='%2300e5ff'/%3E%3C/svg%3E">
     
-    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Pre‑built Tailwind (no JIT) for Cloudflare compatibility -->
+    <link rel="stylesheet" href="https://unpkg.com/tailwindcss@2.2.19/dist/tailwind.min.css">
     <script src="coi-serviceworker.js"></script>
     <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.6/dist/ffmpeg.min.js"></script>
 
     <style>
         :root {
-            --bg-page: #000000;
+            --bg-page: #0a0a0a;
             --bg-sidebar: #0f0f0f;
             --bg-canvas: #050505;
             --bg-panel: #1a1a1a;
@@ -83,9 +84,28 @@
             font-size: 0.75rem;
         }
 
-        canvas { background: var(--bg-canvas); cursor: crosshair; }
+        canvas { 
+            background: var(--bg-canvas); 
+            cursor: crosshair; 
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 4px;
+        }
 
-        /* Pill Tabs – Bigger & More Separated */
+        /* Fixed logo */
+        .fixed-logo {
+            position: fixed;
+            top: 12px;
+            left: 16px;
+            z-index: 100;
+            font-size: 18px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+            color: white;
+            pointer-events: none;
+        }
+
+        /* Pill Tabs */
         .tab-bar {
             display: flex;
             gap: 12px;
@@ -113,14 +133,14 @@
             box-shadow: 0 0 20px rgba(0, 229, 255, 0.3);
         }
 
-        /* Timeline Components */
+        /* Timeline */
         #timelineContainer {
             position: relative;
             width: 100%;
             height: 2.5rem;
             background-color: #18181b;
             border-radius: 0.375rem;
-            margin-top: 1.5rem;
+            margin-top: 0.5rem;
             overflow: visible;
             user-select: none;
             touch-action: none;
@@ -156,7 +176,6 @@
             border: 2px solid #000;
             border-radius: 3px;
         }
-        /* Invisible larger hit area */
         .trim-handle::after {
             content: '';
             position: absolute;
@@ -178,66 +197,61 @@
             pointer-events: none;
         }
 
-        /* Canvas Tools – Volume Meter & Pioneer Fader */
-        .canvas-tools {
+        /* LED Meter */
+        .led-meter {
+            display: flex;
+            gap: 3px;
+            margin-top: 0.5rem;
+            justify-content: center;
+        }
+        .led-segment {
+            width: 10px;
+            height: 16px;
+            background: #1a1a1a;
+            border-radius: 2px;
+            transition: background 0.05s;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.05);
+        }
+        .led-segment.lit.green  { background: #2ecc71; box-shadow: 0 0 8px #2ecc71; }
+        .led-segment.lit.orange { background: #f1c40f; box-shadow: 0 0 8px #f1c40f; }
+        .led-segment.lit.red    { background: #e74c3c; box-shadow: 0 0 8px #e74c3c; }
+
+        /* Pioneer vertical fader */
+        .fader-rail {
             position: absolute;
-            right: 8px;
+            right: 4px;
             top: 10%;
             bottom: 10%;
-            width: 28px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 6px;
-            z-index: 10;
-        }
-        #volumeMeter {
-            width: 6px;
-            flex: 1;
+            width: 16px;
             background: #0f172a;
-            border-radius: 3px;
-            overflow: hidden;
+            border-radius: 2px;
             border: 1px solid #1e293b;
-        }
-        #volumeFill {
-            width: 100%;
-            background: linear-gradient(to top, #06b6d4, #22d3ee);
-            box-shadow: 0 0 12px #00e5ff;
-            height: 0%;
-            transition: height 0.05s ease-out;
-        }
-        .pioneer-fader {
-            width: 100%;
-            flex: 2;
-            background: linear-gradient(to bottom, #0f172a, #1e293b);
-            border-radius: 4px;
-            position: relative;
             cursor: pointer;
             touch-action: none;
-            border: 1px solid #333;
             box-shadow: inset 0 0 8px black;
+            z-index: 10;
         }
         .fader-slot {
             position: absolute;
-            top: 4px;
-            bottom: 4px;
+            top: 6px;
+            bottom: 6px;
             left: 50%;
             transform: translateX(-50%);
-            width: 4px;
+            width: 2px;
             background: #00e5ff;
-            opacity: 0.15;
-            border-radius: 2px;
+            opacity: 0.2;
+            border-radius: 1px;
         }
         .fader-knob {
             position: absolute;
             left: 50%;
-            width: 18px;
-            height: 18px;
-            background: linear-gradient(135deg, #22d3ee, #00e5ff);
+            width: 24px;
+            height: 20px;
+            background: linear-gradient(135deg, #2c3e50, #1a252f);
             border-radius: 3px;
             transform: translate(-50%, -50%);
-            box-shadow: 0 0 15px #00e5ff, 0 0 4px black;
-            border: 1px solid white;
+            box-shadow: 0 0 10px #00e5ff, 0 0 4px black, inset 0 1px 0 rgba(255,255,255,0.15);
+            border: 1px solid #000;
             z-index: 5;
         }
 
@@ -252,7 +266,6 @@
         #helpOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); backdrop-filter: blur(4px); z-index: 50; display: flex; align-items: center; justify-content: center; }
         #helpOverlay.hidden { display: none; }
 
-        /* Split export button */
         .export-split {
             display: flex;
             border-radius: 12px;
@@ -271,10 +284,7 @@
             cursor: pointer;
             transition: opacity 0.2s;
         }
-        .export-main:disabled {
-            opacity: 0.2;
-            cursor: not-allowed;
-        }
+        .export-main:disabled { opacity: 0.2; cursor: not-allowed; }
         .export-res {
             flex: 1;
             background: #1a1a1a;
@@ -287,9 +297,7 @@
             cursor: pointer;
             transition: background 0.2s;
         }
-        .export-res:hover {
-            background: #252525;
-        }
+        .export-res:hover { background: #252525; }
 
         ::-webkit-scrollbar { width: 4px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -297,6 +305,9 @@
     </style>
 </head>
 <body class="h-screen flex items-center justify-center">
+
+    <!-- Fixed logo top‑left -->
+    <div class="fixed-logo">VINYL<span class="text-cyan-400">GEN</span></div>
 
     <!-- Help Overlay -->
     <div id="helpOverlay" class="hidden" onclick="toggleHelp()">
@@ -325,12 +336,8 @@
             
             <div class="sidebar-zone p-5 border-b border-white/5">
                 <header class="mb-5 flex justify-between items-center">
-                    <!-- Reset on left -->
+                    <!-- Reset only (logo moved to fixed) -->
                     <button onclick="globalReset()" class="text-[9px] uppercase font-bold text-red-500 border border-red-500/30 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition">Reset</button>
-                    <!-- Logo on right, bigger -->
-                    <h1 class="text-2xl font-black tracking-tighter text-white">
-                        VINYL<span class="text-cyan-400">GEN</span>
-                    </h1>
                 </header>
 
                 <div class="space-y-3">
@@ -376,7 +383,6 @@
                             <button data-ratio="spotify" class="btn-preset">Spotify</button>
                         </div>
                     </div>
-                    <!-- Resolution removed – now in export split button -->
                     <div class="panel-dominant flex items-center justify-between">
                         <span class="text-[10px] uppercase font-bold text-cyan-400">Express Mode (Static)</span>
                         <input type="checkbox" id="expressMode" class="w-4 h-4">
@@ -402,7 +408,6 @@
                             <div class="flex justify-between text-[10px] mb-1 font-mono uppercase"><span>Vinyl Opacity</span><span id="vinylOpacityVal">100%</span></div>
                             <input type="range" id="vinylOpacity" min="0" max="100" value="100" class="w-full">
                         </div>
-                        <!-- Audio Volume slider removed from here -->
                     </div>
 
                     <div class="grid grid-cols-2 gap-2">
@@ -420,7 +425,7 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-[9px] font-bold uppercase text-slate-500">Base Color</span>
-                            <input type="color" id="vinylFillColor" value="#ffffff" class="bg-transparent border-none w-6 h-6 cursor-pointer">
+                            <input type="color" id="vinylFillColor" value="#1a1a1a" class="bg-transparent border-none w-6 h-6 cursor-pointer">
                         </div>
                     </div>
                 </div>
@@ -471,25 +476,34 @@
             </div>
         </aside>
 
-        <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-black relative">
+        <main class="lg:col-span-9 flex flex-col items-center justify-center p-8 bg-[#0a0a0a] relative">
             
             <div class="relative max-h-[70vh] flex items-center justify-center">
                 <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-full rounded-sm shadow-[0_0_100px_rgba(0,0,0,0.5)]"></canvas>
                 
-                <!-- Pioneer‑style volume meter & fader -->
-                <div class="canvas-tools">
-                    <div id="volumeMeter">
-                        <div id="volumeFill"></div>
-                    </div>
-                    <div class="pioneer-fader" id="pioneerFader">
-                        <div class="fader-slot"></div>
-                        <div class="fader-knob" id="faderKnob"></div>
-                    </div>
+                <!-- Pioneer fader (right of canvas) -->
+                <div class="fader-rail" id="pioneerFader">
+                    <div class="fader-slot"></div>
+                    <div class="fader-knob" id="faderKnob"></div>
                 </div>
             </div>
 
+            <!-- LED Meter (horizontal) above timeline -->
+            <div class="led-meter" id="ledMeter">
+                <div class="led-segment green"></div>
+                <div class="led-segment green"></div>
+                <div class="led-segment green"></div>
+                <div class="led-segment green"></div>
+                <div class="led-segment green"></div>
+                <div class="led-segment orange"></div>
+                <div class="led-segment orange"></div>
+                <div class="led-segment orange"></div>
+                <div class="led-segment red"></div>
+                <div class="led-segment red"></div>
+            </div>
+
             <div class="w-full max-w-2xl">
-                <!-- Timeline with visible border & handles -->
+                <!-- Timeline -->
                 <div id="timelineContainer">
                     <canvas id="waveformCanvas"></canvas>
                     <div id="trimRange"></div>
@@ -512,9 +526,6 @@
                         <svg id="pauseIcon" class="hidden w-6 h-6" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
                     </button>
                 </div>
-                <p class="text-[9px] text-center uppercase tracking-widest font-bold text-slate-600 mt-5">
-                    💡 Drag vinyl or text on canvas to reposition.
-                </p>
             </div>
         </main>
     </div>
@@ -528,13 +539,12 @@
 
         const FONT_MAP = { 'Sans': 'Arial, sans-serif', 'Serif': 'Georgia, serif', 'Mono': '"Courier New", monospace', 'Bold': 'Impact, sans-serif' };
 
-        // --- State ---
         let state = {
             width: 720, height: 720, ratio: '1:1', res: 1080, activeTab: 'format',
             vinylScale: 0.7, vinylX: 0.5, vinylY: 0.5,
             revRotation: false, speedOffset: -125,
             bgColor: '#000000', bgOpacity: 1.0, vinylOpacity: 1.0, expressMode: false,
-            vinylFit: false, bgFit: false, vinylFillColor: '#ffffff',
+            vinylFit: false, bgFit: false, vinylFillColor: '#1a1a1a',
             showVinylFill: true, showHole: false, showCenterDot: false, holeSize: 0.05,
             showWaveform: false, audioVolume: 100,
             trimStart: 0, trimEnd: 0,
@@ -554,7 +564,6 @@
 
         const INITIAL_STATE = JSON.parse(JSON.stringify(state));
 
-        // --- Helpers ---
         function formatTime(s) { 
             if (isNaN(s)) s = 0;
             const m = Math.floor(s / 60), sc = Math.floor(s % 60); 
@@ -563,7 +572,6 @@
 
         function toggleHelp() { document.getElementById('helpOverlay').classList.toggle('hidden'); }
 
-        // --- Storage ---
         function saveToStorage() {
             const data = {...state};
             const keysToRemove = ['audioBuffer', 'audioCtx', 'sourceNode', 'gainNode', 'analyser', 'dataArray', 'vinylAsset', 'bgAsset', 'ffmpeg', 'batchFiles'];
@@ -581,7 +589,6 @@
             switchTab(state.activeTab);
         }
 
-        // --- UI Sync ---
         function syncUI() {
             document.getElementById('vinylSize').value = state.vinylScale * 100;
             document.getElementById('speedOffset').value = state.speedOffset;
@@ -598,19 +605,13 @@
             document.getElementById('showVinylFill').checked = state.showVinylFill;
             document.getElementById('revToggle').checked = state.revRotation;
             document.getElementById('showWaveform').checked = state.showWaveform;
-            
             document.getElementById('sizeVal').textContent = Math.round(state.vinylScale*100)+'%';
             document.getElementById('speedVal').textContent = state.speedOffset;
             document.getElementById('holeSizeVal').textContent = Math.round(state.holeSize*100)+'%';
             document.getElementById('opacityVal').textContent = Math.round(state.bgOpacity*100)+'%';
             document.getElementById('vinylOpacityVal').textContent = Math.round(state.vinylOpacity*100)+'%';
-
             document.getElementById('resolutionBtn').textContent = (state.res === 1080 ? '1080p' : '720p') + ' ▼';
-
-            document.querySelectorAll('#ratioPresets button').forEach(b => {
-                b.classList.toggle('active', b.dataset.ratio === state.ratio);
-            });
-
+            document.querySelectorAll('#ratioPresets button').forEach(b => b.classList.toggle('active', b.dataset.ratio === state.ratio));
             applyResolution(state.res);
             initTextControls();
             updateTimelineUI();
@@ -674,7 +675,6 @@
             state.isStatic = !(vinylIsVideo || bgIsVideo);
         }
 
-        // --- Resolution ---
         function applyResolution(r) {
             state.res = parseInt(r);
             const scale = state.res / 720;
@@ -686,14 +686,12 @@
             drawFrame(state.pausedAt);
         }
 
-        // --- Text Controls ---
         function initTextControls() {
             const container = document.getElementById('textOverlayControls');
             const section = document.getElementById('textSection');
             container.innerHTML = '';
             const anyShow = state.textElements.some(el => el.show);
             section.classList.toggle('hidden', !anyShow);
-
             [...state.textElements].reverse().forEach((el, revIdx) => {
                 const idx = state.textElements.length - 1 - revIdx;
                 const div = document.createElement('div');
@@ -710,9 +708,7 @@
                     <div class="${el.show ? '' : 'hidden'} space-y-2">
                         <input type="text" value="${el.text}" placeholder="${el.id}..." oninput="updateText(${idx}, 'text', this.value)" class="w-full text-[10px]">
                         <div class="flex gap-2">
-                            <select onchange="updateText(${idx}, 'fontFamily', this.value)" class="text-[9px] flex-1">
-                                ${Object.keys(FONT_MAP).map(f => `<option value="${f}" ${el.fontFamily===f?'selected':''}>${f}</option>`).join('')}
-                            </select>
+                            <select onchange="updateText(${idx}, 'fontFamily', this.value)" class="text-[9px] flex-1">${Object.keys(FONT_MAP).map(f => `<option value="${f}" ${el.fontFamily===f?'selected':''}>${f}</option>`).join('')}</select>
                             <input type="color" value="${el.color}" oninput="updateText(${idx}, 'color', this.value)" class="w-5 h-5 bg-transparent border-none">
                         </div>
                         <input type="range" min="10" max="150" value="${el.fontSize}" oninput="updateText(${idx}, 'fontSize', parseInt(this.value))" class="w-full">
@@ -741,7 +737,6 @@
             drawFrame(state.pausedAt);
         };
 
-        // --- FFmpeg Preload ---
         async function preloadFFmpeg() {
             try {
                 state.ffmpeg = createFFmpeg({ log: false });
@@ -750,14 +745,14 @@
             } catch (e) { console.error("FFmpeg load error", e); }
         }
 
-        // --- Timeline Functions ---
+        // --- Timeline ---
         const timeline = document.getElementById('timelineContainer');
         const hStart = document.getElementById('handleStart');
         const hEnd = document.getElementById('handleEnd');
         const phead = document.getElementById('playhead');
         const tRange = document.getElementById('trimRange');
         let activeHandle = null;
-        let dragOffset = 0; // offset between mouse and handle centre in pixels
+        let dragOffset = 0;
 
         function updateTimelineUI() {
             if (!state.audioBuffer || !isFinite(state.audioBuffer.duration)) return;
@@ -765,28 +760,18 @@
             const sPct = state.trimStart / dur;
             const ePct = state.trimEnd / dur;
             const pPct = state.pausedAt / dur;
-
             const timelineWidth = timeline.clientWidth;
             if (!timelineWidth) return;
-            const handleW = 14; // match CSS width
-
-            const startPos = Math.max(0, Math.min(sPct * timelineWidth - handleW / 2, timelineWidth - handleW));
-            const endPos   = Math.max(0, Math.min(ePct * timelineWidth - handleW / 2, timelineWidth - handleW));
-            const playPos  = Math.max(0, Math.min(pPct * timelineWidth, timelineWidth)) - 1; // center the 2px playhead
-
+            const handleW = 14;
+            const startPos = Math.max(0, Math.min(sPct * timelineWidth - handleW/2, timelineWidth - handleW));
+            const endPos   = Math.max(0, Math.min(ePct * timelineWidth - handleW/2, timelineWidth - handleW));
+            const playPos  = Math.max(0, Math.min(pPct * timelineWidth, timelineWidth)) - 1;
             hStart.style.left = startPos + 'px';
             hEnd.style.left = endPos + 'px';
             phead.style.left = playPos + 'px';
             tRange.style.left = (sPct * 100) + '%';
             tRange.style.width = ((ePct - sPct) * 100) + '%';
-
-            // Hide the trim overlay if no trim has been applied (still full length)
-            if (state.trimStart <= 0 && state.trimEnd >= dur) {
-                tRange.style.display = 'none';
-            } else {
-                tRange.style.display = 'block';
-            }
-
+            tRange.style.display = (state.trimStart <= 0 && state.trimEnd >= dur) ? 'none' : 'block';
             document.getElementById('trimInfo').textContent = `Trim: ${(state.trimEnd - state.trimStart).toFixed(1)}s selected`;
         }
 
@@ -798,11 +783,9 @@
             wCanvas.height = container.clientHeight;
             if (wCanvas.width === 0 || wCanvas.height === 0) return;
             if (!state.audioBuffer) return;
-
             const data = state.audioBuffer.getChannelData(0);
             const step = Math.ceil(data.length / wCanvas.width);
             const amp = wCanvas.height / 2;
-            
             wCtx.clearRect(0, 0, wCanvas.width, wCanvas.height);
             wCtx.fillStyle = '#00e5ff';
             for (let i = 0; i < wCanvas.width; i++) {
@@ -822,22 +805,15 @@
             if (e.target === hStart) activeHandle = 'start';
             else if (e.target === hEnd) activeHandle = 'end';
             else activeHandle = 'playhead';
-
             if (activeHandle) {
-                // Calculate offset between mouse X and the handle's current centre
                 const r = timeline.getBoundingClientRect();
                 const clientX = e.touches ? e.touches[0].clientX : e.clientX;
                 const mouseX = clientX - r.left;
                 let handleCenter;
-                if (activeHandle === 'start') {
-                    handleCenter = (state.trimStart / state.audioBuffer.duration) * r.width;
-                } else if (activeHandle === 'end') {
-                    handleCenter = (state.trimEnd / state.audioBuffer.duration) * r.width;
-                } else {
-                    handleCenter = (state.pausedAt / state.audioBuffer.duration) * r.width;
-                }
+                if (activeHandle === 'start') handleCenter = (state.trimStart / state.audioBuffer.duration) * r.width;
+                else if (activeHandle === 'end') handleCenter = (state.trimEnd / state.audioBuffer.duration) * r.width;
+                else handleCenter = (state.pausedAt / state.audioBuffer.duration) * r.width;
                 dragOffset = mouseX - handleCenter;
-
                 timelineDragging = true;
                 window.addEventListener('mousemove', handleTimelineMove);
                 window.addEventListener('touchmove', handleTimelineMove, { passive: false });
@@ -864,10 +840,9 @@
             const r = timeline.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const mouseX = clientX - r.left;
-            const adjustedX = mouseX - dragOffset; // compensate for initial offset
+            const adjustedX = mouseX - dragOffset;
             const x = Math.max(0, Math.min(1, adjustedX / r.width));
             const target = x * state.audioBuffer.duration;
-
             if (activeHandle === 'start') {
                 state.trimStart = Math.min(target, state.trimEnd - 3);
                 if (state.pausedAt < state.trimStart) state.pausedAt = state.trimStart;
@@ -879,9 +854,7 @@
             } else if (activeHandle === 'playhead') {
                 state.pausedAt = target;
                 if (state.isPlaying) {
-                    if (state.sourceNode) {
-                        try { state.sourceNode.stop(); } catch(e) {}
-                    }
+                    if (state.sourceNode) { try { state.sourceNode.stop(); } catch(e) {} }
                     state.sourceNode = state.audioCtx.createBufferSource();
                     state.sourceNode.buffer = state.audioBuffer;
                     state.sourceNode.connect(state.gainNode);
@@ -933,11 +906,7 @@
             window.addEventListener('touchmove', onFaderMove, { passive: false });
             window.addEventListener('touchend', stopFaderDrag);
         });
-
-        function onFaderMove(e) {
-            if (!faderDragging) return;
-            setVolumeFromFader(e);
-        }
+        function onFaderMove(e) { if (faderDragging) setVolumeFromFader(e); }
         function stopFaderDrag() {
             faderDragging = false;
             window.removeEventListener('mousemove', onFaderMove);
@@ -946,13 +915,12 @@
             window.removeEventListener('touchend', stopFaderDrag);
         }
 
-        // --- Render Engine (with offscreen hole punching) ---
+        // --- Render Engine ---
         function drawFrame(time) {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = state.bgColor;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Background
             if (state.bgAsset) {
                 ctx.save();
                 ctx.globalAlpha = state.bgOpacity;
@@ -964,37 +932,45 @@
                 ctx.restore();
             }
 
-            // Waveform (on canvas)
             if (state.showWaveform && state.analyser) {
                 state.analyser.getByteFrequencyData(state.dataArray);
                 ctx.fillStyle = 'rgba(0, 229, 255, 0.4)';
                 const barWidth = (canvas.width / state.dataArray.length) * 2.5;
                 let x = 0;
-                for(let i = 0; i < state.dataArray.length; i++) {
+                for (let i = 0; i < state.dataArray.length; i++) {
                     const barHeight = (state.dataArray[i] / 255) * (canvas.height * 0.15);
                     ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
                     x += barWidth + 1;
                 }
             }
 
-            // Volume meter update
+            // LED Meter
             if (state.analyser && state.isPlaying) {
                 state.analyser.getByteFrequencyData(state.dataArray);
                 let sum = 0;
                 for (let i = 0; i < 100; i++) sum += state.dataArray[i];
-                document.getElementById('volumeFill').style.height = Math.min(100, (sum/100) * 0.8) + '%';
-            } else if (!state.isPlaying) {
-                document.getElementById('volumeFill').style.height = '0%';
+                const avg = sum / 100;
+                const level = Math.min(10, Math.floor((avg / 256) * 11));
+                const segments = document.querySelectorAll('.led-segment');
+                segments.forEach((seg, i) => {
+                    seg.classList.remove('lit', 'green', 'orange', 'red');
+                    if (i < level) {
+                        seg.classList.add('lit');
+                        if (i < 5) seg.classList.add('green');
+                        else if (i < 8) seg.classList.add('orange');
+                        else seg.classList.add('red');
+                    }
+                });
+            } else {
+                document.querySelectorAll('.led-segment').forEach(seg => seg.classList.remove('lit', 'green', 'orange', 'red'));
             }
 
-            // Vinyl compositing (offscreen hole punching)
+            // Vinyl compositing
             const angle = state.expressMode ? 0 : (time * (180 + state.speedOffset) * (state.revRotation ? -1 : 1)) % 360;
             const vDim = Math.min(canvas.width, canvas.height) * state.vinylScale;
-            
             offscreenCanvas.width = vDim;
             offscreenCanvas.height = vDim;
             offCtx.clearRect(0, 0, vDim, vDim);
-            
             offCtx.save();
             offCtx.translate(vDim/2, vDim/2);
             offCtx.beginPath();
@@ -1037,7 +1013,6 @@
             ctx.drawImage(offscreenCanvas, -vDim/2, -vDim/2);
             ctx.restore();
 
-            // Text
             state.textElements.forEach(el => {
                 if (!el.show || !el.text.trim()) return;
                 ctx.save();
@@ -1051,13 +1026,12 @@
             });
         }
 
-        // --- Drag ---
+        // --- Drag (canvas) ---
         function handleStart(e) {
             const r = canvas.getBoundingClientRect();
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             if (e.touches) document.getElementById('touchBanner').classList.remove('hidden');
-
             const mx = (clientX - r.left) / r.width, my = (clientY - r.top) / r.height;
             for (let i = state.textElements.length - 1; i >= 0; i--) {
                 const el = state.textElements[i]; if (!el.show) continue;
@@ -1095,21 +1069,17 @@
             state.currentAudioName = file.name.replace(/\.[^/.]+$/, "");
             state.audioCtx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
             state.audioBuffer = await state.audioCtx.decodeAudioData(await file.arrayBuffer());
-            
             state.gainNode = state.audioCtx.createGain();
             state.gainNode.gain.value = state.audioVolume / 100;
             state.analyser = state.audioCtx.createAnalyser();
             state.analyser.fftSize = 256;
             state.dataArray = new Uint8Array(state.analyser.frequencyBinCount);
-            
             state.trimStart = 0;
             state.trimEnd = state.audioBuffer.duration;
             state.pausedAt = 0;
-            
             document.getElementById('playPauseBtn').disabled = false;
             document.getElementById('exportBtn').disabled = false;
             document.getElementById('timeTot').textContent = formatTime(state.audioBuffer.duration);
-            
             drawWaveform();
             updateTimelineUI();
             drawFrame(0);
@@ -1179,6 +1149,9 @@
         }
 
         async function performSingleExport(filename) {
+            const wasPlaying = state.isPlaying;
+            if (wasPlaying) togglePlay();
+
             state.isExporting = true;
             state.shouldCancel = false;
             const area = document.getElementById('exportProgress');
@@ -1256,8 +1229,13 @@
                 document.getElementById('exportBtn').disabled = false;
                 setTimeout(() => { if (!state.isExporting) area.classList.add('hidden'); }, 3000);
                 state.shouldCancel = false;
-                state.ffmpeg = null;
-                state.isFFmpegReady = false;
+
+                // Resume playback automatically
+                if (wasPlaying) {
+                    setTimeout(() => {
+                        if (state.audioBuffer && !state.isPlaying) togglePlay();
+                    }, 500);
+                }
             }
         }
 
@@ -1321,7 +1299,6 @@
         document.getElementById('holeSize').oninput = (e) => { state.holeSize = e.target.value/100; document.getElementById('holeSizeVal').textContent = e.target.value+'%'; saveToStorage(); drawFrame(state.pausedAt); };
         document.getElementById('vinylFillColor').oninput = (e) => { state.vinylFillColor = e.target.value; saveToStorage(); drawFrame(state.pausedAt); };
 
-        // Split resolution button
         document.getElementById('resolutionBtn').onclick = () => {
             state.res = state.res === 1080 ? 720 : 1080;
             applyResolution(state.res);
@@ -1329,10 +1306,8 @@
             saveToStorage();
         };
 
-        // Timeline events
         timeline.addEventListener('mousedown', startTimelineDrag);
         timeline.addEventListener('touchstart', startTimelineDrag, { passive: false });
-
         window.addEventListener('resize', () => { drawWaveform(); updateFaderKnob(); });
 
         window.addEventListener('keydown', (e) => {
@@ -1346,8 +1321,8 @@
             if (e.key === 'Escape') document.getElementById('helpOverlay').classList.add('hidden');
         });
 
-        // Initialize
         loadFromStorage();
+        // preloadFFmpeg();   // removed to save idle memory
         updateStaticFlag();
         drawFrame(0);
     </script>
