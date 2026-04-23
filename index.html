@@ -109,19 +109,37 @@
             @apply absolute inset-0 w-full h-full opacity-30 pointer-events-none;
         }
         #trimRange {
-            @apply absolute h-full bg-cyan-400/20 border-l border-r border-cyan-400 z-10;
+            position: absolute;
+            top: 0;
+            height: 100%;
+            background: rgba(34, 211, 238, 0.15);
+            border-left: 2px solid #22d3ee;
+            border-right: 2px solid #22d3ee;
+            z-index: 10;
+            pointer-events: none;
         }
         .trim-handle {
             position: absolute;
             top: 0;
-            width: 10px;
+            width: 14px;
             height: 100%;
             background: #22d3ee;
             cursor: ew-resize;
             z-index: 50;
-            box-shadow: 0 0 8px #22d3ee, 0 0 2px #000;
-            border: 1px solid #000;
-            border-radius: 2px;
+            box-shadow: 0 0 10px #22d3ee;
+            border: 2px solid #000;
+            border-radius: 3px;
+        }
+        /* Invisible larger hit area */
+        .trim-handle::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -6px;
+            right: -6px;
+            bottom: 0;
+            z-index: -1;
+            cursor: ew-resize;
         }
         #playhead {
             position: absolute;
@@ -134,56 +152,67 @@
             pointer-events: none;
         }
 
-        /* Volume Meter & Vertical Slider */
-        #volumeMeter {
+        /* Canvas Tools – Volume Meter & Pioneer Fader */
+        .canvas-tools {
             position: absolute;
-            right: 12px;
+            right: 8px;
             top: 10%;
             bottom: 10%;
+            width: 28px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            z-index: 10;
+        }
+        #volumeMeter {
             width: 6px;
+            flex: 1;
             background: #0f172a;
             border-radius: 3px;
             overflow: hidden;
             border: 1px solid #1e293b;
-            z-index: 5;
         }
         #volumeFill {
-            position: absolute;
-            bottom: 0;
             width: 100%;
             background: linear-gradient(to top, #06b6d4, #22d3ee);
+            box-shadow: 0 0 12px #00e5ff;
+            height: 0%;
             transition: height 0.05s ease-out;
-            box-shadow: 0 0 10px #00e5ff;
         }
-        /* Pioneer‑style vertical fader track */
-        .vertical-fader {
-            position: absolute;
-            right: 2px;
-            top: 10%;
-            bottom: 10%;
-            width: 20px;
-            z-index: 10;
+        .pioneer-fader {
+            width: 100%;
+            flex: 2;
+            background: linear-gradient(to bottom, #0f172a, #1e293b);
+            border-radius: 4px;
+            position: relative;
             cursor: pointer;
             touch-action: none;
+            border: 1px solid #333;
+            box-shadow: inset 0 0 8px black;
         }
-        .fader-track {
+        .fader-slot {
             position: absolute;
-            left: 8px;
-            top: 0;
-            bottom: 0;
+            top: 4px;
+            bottom: 4px;
+            left: 50%;
+            transform: translateX(-50%);
             width: 4px;
-            background: #1e293b;
+            background: #00e5ff;
+            opacity: 0.15;
             border-radius: 2px;
         }
         .fader-knob {
             position: absolute;
-            left: 4px;
-            width: 12px;
-            height: 12px;
-            background: #22d3ee;
-            border-radius: 2px;
-            box-shadow: 0 0 8px #00e5ff;
+            left: 50%;
+            width: 18px;
+            height: 18px;
+            background: linear-gradient(135deg, #22d3ee, #00e5ff);
+            border-radius: 3px;
             transform: translate(-50%, -50%);
+            box-shadow: 0 0 15px #00e5ff, 0 0 4px black;
+            border: 1px solid white;
+            z-index: 5;
         }
 
         .toggle-label-sm { @apply text-[9px] uppercase font-bold tracking-tighter; color: var(--text-muted); }
@@ -418,14 +447,16 @@
             
             <div class="relative max-h-[70vh] flex items-center justify-center">
                 <canvas id="mainCanvas" width="720" height="720" class="max-w-full max-h-full rounded-sm shadow-[0_0_100px_rgba(0,0,0,0.5)]"></canvas>
-                <!-- Volume Meter -->
-                <div id="volumeMeter">
-                    <div id="volumeFill"></div>
-                </div>
-                <!-- Pioneer‑style vertical fader right next to meter -->
-                <div class="vertical-fader" id="verticalFader">
-                    <div class="fader-track"></div>
-                    <div class="fader-knob" id="faderKnob"></div>
+                
+                <!-- Pioneer‑style volume meter & fader -->
+                <div class="canvas-tools">
+                    <div id="volumeMeter">
+                        <div id="volumeFill"></div>
+                    </div>
+                    <div class="pioneer-fader" id="pioneerFader">
+                        <div class="fader-slot"></div>
+                        <div class="fader-knob" id="faderKnob"></div>
+                    </div>
                 </div>
             </div>
 
@@ -700,17 +731,18 @@
         let activeHandle = null;
 
         function updateTimelineUI() {
-            if (!state.audioBuffer) return;
+            if (!state.audioBuffer || !isFinite(state.audioBuffer.duration)) return;
             const dur = state.audioBuffer.duration;
             const sPct = state.trimStart / dur;
             const ePct = state.trimEnd / dur;
             const pPct = state.pausedAt / dur;
 
             const timelineWidth = timeline.clientWidth;
-            const handleW = hStart.offsetWidth || 10;
+            if (!timelineWidth) return;
+            const handleW = 14; // match CSS width
 
-            const startPos = Math.max(0, Math.min(sPct * timelineWidth - handleW/2, timelineWidth - handleW));
-            const endPos   = Math.max(0, Math.min(ePct * timelineWidth - handleW/2, timelineWidth - handleW));
+            const startPos = Math.max(0, Math.min(sPct * timelineWidth - handleW / 2, timelineWidth - handleW));
+            const endPos   = Math.max(0, Math.min(ePct * timelineWidth - handleW / 2, timelineWidth - handleW));
             const playPos  = Math.max(0, Math.min(pPct * timelineWidth, timelineWidth));
 
             hStart.style.left = startPos + 'px';
@@ -810,38 +842,38 @@
             document.getElementById('timeCur').textContent = formatTime(state.pausedAt);
         }
 
-        // --- Vertical Fader (Pioneer‑style) ---
-        const fader = document.getElementById('verticalFader');
-        const faderKnob = document.getElementById('faderKnob');
+        // --- Pioneer Fader ---
+        const pioneerFader = document.getElementById('pioneerFader');
+        const faderKnobEl = document.getElementById('faderKnob');
         let faderDragging = false;
 
         function updateFaderKnob() {
-            const percent = state.audioVolume / 200; // 0..200 range mapped to 0..100%
-            const trackHeight = fader.clientHeight;
+            const percent = state.audioVolume / 200;
+            const trackHeight = pioneerFader.clientHeight;
+            if (!trackHeight) return;
             const knobY = trackHeight * (1 - percent);
-            faderKnob.style.top = knobY + 'px';
+            faderKnobEl.style.top = knobY + 'px';
         }
 
         function setVolumeFromFader(e) {
-            const rect = fader.getBoundingClientRect();
+            const rect = pioneerFader.getBoundingClientRect();
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
             const fraction = 1 - Math.max(0, Math.min(1, (clientY - rect.top) / rect.height));
             const newVol = Math.round(fraction * 200);
             state.audioVolume = newVol;
             if (state.gainNode) state.gainNode.gain.value = newVol / 100;
-            document.getElementById('volVal').textContent = newVol + '%';
             updateFaderKnob();
             saveToStorage();
         }
 
-        fader.addEventListener('mousedown', (e) => {
+        pioneerFader.addEventListener('mousedown', (e) => {
             e.preventDefault();
             faderDragging = true;
             setVolumeFromFader(e);
             window.addEventListener('mousemove', onFaderMove);
             window.addEventListener('mouseup', stopFaderDrag);
         });
-        fader.addEventListener('touchstart', (e) => {
+        pioneerFader.addEventListener('touchstart', (e) => {
             e.preventDefault();
             faderDragging = true;
             setVolumeFromFader(e);
