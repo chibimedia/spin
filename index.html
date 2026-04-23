@@ -1256,6 +1256,8 @@
                 document.getElementById('exportBtn').disabled = false;
                 setTimeout(() => { if (!state.isExporting) area.classList.add('hidden'); }, 3000);
                 state.shouldCancel = false;
+                state.ffmpeg = null;
+                state.isFFmpegReady = false;
             }
         }
 
@@ -1346,7 +1348,6 @@
 
         // Initialize
         loadFromStorage();
-        preloadFFmpeg();
         updateStaticFlag();
         drawFrame(0);
     </script>
